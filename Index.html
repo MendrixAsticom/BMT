@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<!-- CSS Dependencies -->
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css" />
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/dataTables.bootstrap4.min.css" />
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.2.9/css/responsive.bootstrap4.min.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+		<script src="https://kit.fontawesome.com/89c7bc87a7.js" crossorigin="anonymous"></script>
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/select/1.3.3/css/select.dataTables.min.css" />
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/keytable/2.6.4/css/keyTable.dataTables.min.css" />
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedcolumns/4.3.0/css/fixedColumns.dataTables.min.css" />
+		<link rel="stylesheet" type="text/css" href="https://code.jquery.com/ui/1.14.1/themes/base/jquery-ui.css" />
+		<?!= include('css'); ?>
+	</head>
+	<body class="min-vh-100">
+		<!-- Login Page -->
+
+		<div id="loginPage" class="container">
+			<div class="wrap mt-4">
+				<div class="title">
+					<img src="https://cdn-icons-png.freepik.com/512/295/295128.png" style="width: 60px" />
+				</div>
+				<h4 class="text-center mb-3 mt-2">Login Member</h4>
+				<form id="loginForm">
+					<!-- <div class="row">
+          <i class="fas fa-user"></i>
+          <input type="text" id="username" name="username" placeholder="Email Address" required>
+        </div>
+        <div class="row">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="password" name="password" placeholder="Password" required>
+          </div> -->
+
+					<div class="row button mt-3">
+						<button type="submit">Login</button>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<!-- NavBar -->
+
+		<div class="wrapper" style="display: none">
+			<aside id="sidebar" class="js-sidebar">
+				<div class="h-100">
+					<div class="sidebar-logo">
+						<a href="#">Budget Tool</a>
+					</div>
+					<ul class="sidebar-nav">
+						<li class="sidebar-header">Home</li>
+						<li class="sidebar-item">
+							<a href="#" id="sidebarHomeLink" class="sidebar-link"> <i class="fa-solid fa-house pe-2"></i> Home </a>
+						</li>
+						<li class="sidebar-item">
+							<a href="#" id="sidebarUploadCostEstimateLink" class="sidebar-link"> <i class="fa-solid fa-list pe-2"></i> Upload Cost Estimate </a>
+						</li>
+						<li class="sidebar-item">
+							<a href="#" id="sidebarBulkInvoiceLink" class="sidebar-link">
+								<i class="fa-solid fa-file-invoice pe-2"></i>
+								Request For Payment
+							</a>
+						</li>
+						<li class="sidebar-item">
+							<a href="#" id="sidebarRequestPRPOLink" class="sidebar-link"> <i class="fas fa-check pe-2"></i> Request for PR/PO </a>
+						</li>
+						<li class="sidebar-item">
+							<a href="#" id="sidebarReportBugLink" class="sidebar-link">
+								<i class="fa fa-question-circle pe-2"></i>
+								Report Bugs
+							</a>
+						</li>
+					</ul>
+				</div>
+			</aside>
+
+			<div class="main">
+				<nav class="navbar navbar-expand px-3 border-bottom sticky-top">
+					<button class="btn" id="sidebar-toggle" type="button">
+						<span class="navbar-toggler-icon"></span>
+					</button>
+					<div class="navbar-brand">
+						<span id="blinkDots">&#183; &#183; &#183;</span>
+					</div>
+					<div class="navbar-collapse navbar">
+						<ul class="navbar-nav">
+							<li class="nav-item dropdown">
+								<a href="#" data-bs-toggle="dropdown" class="nav-icon pe-md-0">
+									<img src="https://cdn-icons-png.freepik.com/256/6024/6024190.png?semt=ais_hybrid" class="avatar img-fluid rounded" alt="" />
+								</a>
+								<div class="dropdown-menu dropdown-menu-end">
+									<a href="#" id="logoutLink" class="dropdown-item">Logout</a>
+								</div>
+							</li>
+						</ul>
+					</div>
+				</nav>
+
+				<!-- Home Page  -->
+
+				<div id="homePage" class="homepage_card">
+					<h1 class="text-center mb-4">Marketing Budget Portal</h1>
+					<div class="card text-center">
+						<div class="card-body">
+							<h2 class="card-title">
+								Hello
+								<span id="user-first-name">[first name]</span>
+							</h2>
+							<p class="card-text">What do you want to do today?</p>
+							<p class="card-text">(click your choice)</p>
+							<div class="row mt-4">
+								<div class="col-md-4 mb-2">
+									<button id="uploadCostEstimateButton" class="btn btn-success btn-block">UPLOAD A COST ESTIMATE</button>
+								</div>
+								<div class="col-md-4 mb-2">
+									<button id="BulkInvoiceButton" class="btn btn-primary btn-block">Request For Payment</button>
+								</div>
+								<div class="col-md-4 mb-2">
+									<button id="requestPRPOButton" class="btn btn-primary btn-block">REQUEST FOR PR/PO</button>
+								</div>
+								<div class="col-md-4 mb-2">
+									<button id="reportBugButton" class="btn btn-primary btn-block">Report Bugs</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Bulk Invoice Page -->
+				<div id="bulkInvoicePage" style="display: none">
+					<div class="container-fluid">
+						<h1 class="text-center mb-4">Request For Payment</h1>
+						<div class="row">
+							<!-- Search Hierarchy Card and Direct IO Number Search Card -->
+							<div class="col-md-4">
+								<!-- Search Hierarchy Card -->
+								<div class="card mb-4">
+									<div class="card-body">
+										<h5 class="card-title">search via CE Number</h5>
+										<!-- CE Number Input -->
+										<div class="mb-3">
+											<label for="ceNumber" class="form-label">Search CE Number:</label>
+											<div class="input-group">
+												<input type="text" class="form-control" id="ceNumber" placeholder="Type CE Number" />
+											</div>
+										</div>
+										<!-- IO Number Input -->
+										<div class="mb-3">
+											<label for="ioNumberBulk" class="form-label">Search IO Number:</label>
+											<div class="input-group">
+												<input type="text" class="form-control" id="ioNumberBulk" placeholder="Type IO Number" disabled />
+											</div>
+										</div>
+										<!-- Vendor Name Input -->
+										<div class="mb-3">
+											<label for="vendorNameBulk" class="form-label">Search Vendor Name:</label>
+											<div class="input-group">
+												<input type="text" class="form-control" id="vendorNameBulk" placeholder="Type Vendor Name" disabled />
+											</div>
+										</div>
+										<!-- Add this button below the Vendor Name input -->
+										<div class="mb-3">
+											<button class="btn btn-primary w-100" type="button" id="hierarchySearchButton">
+												<i class="fas fa-search"></i>
+												Search
+											</button>
+										</div>
+									</div>
+								</div>
+
+								<!-- Direct IO Number Search Card -->
+								<div class="card mb-4">
+									<div class="card-body">
+										<h5 class="card-title">Search via IO number</h5>
+										<!-- IO Number Input -->
+										<div class="mb-3">
+											<label for="ioNumberSearch" class="form-label">Search IO Number:</label>
+											<div class="input-group">
+												<input type="text" class="form-control" id="ioNumberSearch" placeholder="Type IO Number" />
+												<button class="btn btn-primary" type="button" id="searchIONumberButtonDirect">
+													<i class="fas fa-search"></i>
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Pulled Data Table (Right Side) -->
+							<div class="col-md-8">
+								<div class="card">
+									<div class="card-body">
+										<h5 class="card-title">Data Pulled From Tool DB</h5>
+										<div class="table-responsive">
+											<table class="table table-striped table-hover" id="bulkInvoiceDataTable">
+												<thead>
+													<tr>
+														<th>Field</th>
+														<th>Value</th>
+													</tr>
+												</thead>
+												<tbody>
+													<!-- Table rows will be dynamically populated here -->
+												</tbody>
+											</table>
+										</div>
+										<button id="addInvoiceButtonBulk" class="btn btn-primary mt-3">Add Invoice</button>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Modal for Non-Unique IO Number Selection -->
+						<div class="modal fade" id="nonUniqueIONumberModal" tabindex="-1" aria-labelledby="nonUniqueIONumberModalLabel" aria-hidden="true">
+							<div class="modal-dialog modal-md">
+								<div class="modal-content">
+									<div class="modal-header">
+										<h5 class="modal-title" id="nonUniqueIONumberModalLabel">Select Row</h5>
+										<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+									</div>
+									<div class="modal-body">
+										<p>The IO Number is not unique. Please select the correct row from the list below:</p>
+										<div class="table-responsive">
+											<table class="table table-striped table-hover" id="nonUniqueIONumberTable">
+												<thead>
+													<tr>
+														<th>CE Number</th>
+														<th>Program Name</th>
+														<th>Vendor Name</th>
+														<th>Action</th>
+													</tr>
+												</thead>
+												<tbody>
+													<!-- Rows will be dynamically populated here -->
+												</tbody>
+											</table>
+										</div>
+									</div>
+									<div class="modal-footer">
+										<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Bulk Invoice Modal -->
+				<div class="modal fade" id="bulkInvoiceModal" tabindex="-1" aria-labelledby="bulkInvoiceModalLabel" aria-hidden="true">
+					<div class="modal-dialog modal-xl">
+						<div class="modal-content">
+							<div class="modal-header">
+								<h5 class="modal-title" id="bulkInvoiceModalLabel">Add Bulk Invoice</h5>
+								<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+							</div>
+							<div class="modal-body">
+								<div class="table-responsive">
+									<table id="bulkInvoiceTable" class="table table-striped">
+										<thead>
+											<tr>
+												<th>Invoice Vendor Name *</th>
+												<th>Invoice Number *</th>
+												<th>Invoice Amount (VAT EX) *</th>
+												<th>Accrual Reference Doc</th>
+												<th>Invoice Date *</th>
+												<th>Invoice Due Date</th>
+												<th class="input-file">Uploaded Invoice File *</th>
+											</tr>
+										</thead>
+										<tbody>
+											<!-- Rows will be dynamically added here -->
+										</tbody>
+									</table>
+								</div>
+								<div class="d-flex justify-content-between">
+									<div>
+										<button id="addRowButton" class="btn btn-primary">Add Row</button>
+										<button id="saveBulkInvoiceButton" class="btn btn-success">Save</button>
+									</div>
+									<div>
+										<button id="uploadExcelButton" class="btn btn-secondary">Upload Excel File</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Request for PR/PO Page -->
+				<div id="requestPRPOPage" style="display: none">
+					<div class="container-fluid">
+						<h1 class="text-center mb-4">Request for PR/PO</h1>
+						<div class="card mb-4">
+							<div class="card-body">
+								<form id="requestPRPOForm">
+									<div class="mb-3">
+										<label for="requestIONumber" class="form-label">IO Number:</label>
+										<input type="text" class="form-control" id="requestIONumber" placeholder="Enter IO Number" required />
+									</div>
+									<div class="mb-3">
+										<label for="requestFileUpload" class="form-label">Upload File:</label>
+										<input type="file" class="form-control" id="requestFileUpload" accept=".pdf,.xls,.xlsx" required />
+									</div>
+									<button type="submit" class="btn btn-primary w-100">Upload</button>
+								</form>
+								<div id="requestFileError" class="alert alert-danger mt-3" style="display: none">Please select a valid file.</div>
+								<div id="requestProgressSpinner" class="text-center mt-3" style="display: none">
+									<div class="spinner-border" role="status">
+										<span class="visually-hidden">Uploading...</span>
+									</div>
+									<p>Uploading...</p>
+								</div>
+								<div id="requestUploadStatus" class="mt-3"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div id="previewAndTableContainerPRPO">
+					<div id="filePreviewPRPO">
+						<h3>File Preview</h3>
+						<iframe id="pdfPreviewPRPO" width="100%" height="850px"></iframe>
+					</div>
+					<div id="editableTablePRPO">
+						<h3>Input Cost Estimate Data Here</h3>
+						<!-- Editable data table content goes here -->
+					</div>
+				</div>
+
+				<!-- Upload Cost Estimate Page -->
+
+				<div id="uploadCostEstimatePage" style="display: none">
+					<div class="container-fluid">
+						<h1 class="text-center mb-4">Upload Cost Estimate</h1>
+						<div class="card mb-4">
+							<div class="card-body">
+								<form id="uploadCostEstimateForm">
+									<div class="mb-3">
+										<label for="ioNumber" class="form-label">IO Number:</label>
+										<input type="text" class="form-control" id="ioNumber" placeholder="Enter IO Number" required />
+									</div>
+									<div class="mb-3">
+										<label for="fileUpload" class="form-label">Upload File:</label>
+										<input type="file" class="form-control" id="fileUpload" accept=".pdf,.xls,.xlsx" required />
+									</div>
+									<button type="submit" class="btn btn-primary w-100">Upload</button>
+								</form>
+								<div id="fileError" class="alert alert-danger mt-3" style="display: none">Please select a valid file.</div>
+								<div id="progressSpinner" class="text-center mt-3" style="display: none">
+									<div class="spinner-border" role="status">
+										<span class="visually-hidden">Uploading...</span>
+									</div>
+									<p>Uploading...</p>
+								</div>
+								<div id="uploadStatus" class="mt-3"></div>
+							</div>
+						</div>
+					</div>
+					<div id="previewAndTableContainer">
+						<div id="filePreview">
+							<h3>File Preview</h3>
+							<iframe id="pdfPreview" width="100%" height="1050px"></iframe>
+						</div>
+						<div id="editableTable">
+							<h3>Input Cost Estimate Data Here</h3>
+							<!-- Your editable data table content goes here -->
+						</div>
+					</div>
+				</div>
+
+				<!-- Report Page -->
+				<div id="reportBugsPage" class="reportpage_card">
+					<h1 class="text-center mb-4">Report Bugs Portal</h1>
+					<div class="card text-center">
+						<div class="card-body">
+							<iframe
+								src="https://docs.google.com/forms/d/e/1FAIpQLSfb35gLT5CqZNVrPdp5GT2aLSCu6urUrBPx2DFKGWcxzy6CbQ/viewform?embedded=true"
+								width="640"
+								height="400"
+								frameborder="0"
+								marginheight="0"
+								marginwidth="0"
+								>Loading…</iframe
+							>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript" src="https://cdn.datatables.net/fixedcolumns/4.3.0/js/dataTables.fixedColumns.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+		<script src="https://code.jquery.com/ui/1.14.1/jquery-ui.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js"></script>
+		<script type="text/javascript" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+		<script type="text/javascript" src="https://cdn.datatables.net/1.11.3/js/dataTables.bootstrap4.min.js"></script>
+		<script type="text/javascript" src="https://cdn.datatables.net/responsive/2.2.9/js/dataTables.responsive.min.js"></script>
+		<script type="text/javascript" src="https://cdn.datatables.net/responsive/2.2.9/js/responsive.bootstrap4.min.js"></script>
+		<script type="text/javascript" src="https://cdn.datatables.net/select/1.3.3/js/dataTables.select.min.js"></script>
+		<script type="text/javascript" src="https://cdn.datatables.net/keytable/2.6.4/js/dataTables.keyTable.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+		<?!= include('js'); ?>
+	</body>
+</html>

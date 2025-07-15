@@ -1,0 +1,2899 @@
+<script>
+	//Update this (remove line 1289)
+	let currentLoggedInUser = "";
+	let uploadedFileName = "";
+	let lastVisitedPage = "homePage"; // Default to home page
+
+	// Add this variable at the top of your js.html
+	let uploadedRequestFileName; // Store the uploaded file name with the id globally
+	let uploadedRequestFileId;
+
+	function formatDateInputVal(date) {
+		date = new Date(date);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0"); // Month is 0-indexed
+		const day = String(date.getDate()).padStart(2, "0");
+
+		return `${year}-${month}-${day}`;
+	}
+
+	function addDays(date, days) {
+		var result = new Date(date);
+		result = result.setDate(result.getDate() + days);
+		return formatDateInputVal(result);
+	}
+
+	// AFK detection and auto-logout ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+	let afkTimeout;
+	const AFK_TIMEOUT = 30 * 60000; // 1 minute in milliseconds = 60000
+	let isLoggedIn = false;
+
+	function resetAfkTimer() {
+		if (isLoggedIn) {
+			clearTimeout(afkTimeout);
+			afkTimeout = setTimeout(autoLogout, AFK_TIMEOUT);
+		}
+	}
+
+	function autoLogout() {
+		if (isLoggedIn) {
+			// Capture the last visible page more precisely
+			lastVisitedPage = $('div[id$="Page"]:visible').attr("id") || "homePage";
+
+			// Reset UI completely
+			$(".wrapper").hide();
+			$("#loginPage").show();
+			$("#username").val("");
+			$('#loginForm button[type="submit"]').html("Login").prop("disabled", false);
+
+			isAdmin = false;
+			isLoggedIn = false;
+
+			$(".modal").modal("hide");
+
+			Swal.fire({
+				icon: "info",
+				title: "Session Expired",
+				text: "You have been logged out due to inactivity.",
+				confirmButtonText: "OK",
+			});
+
+			clearTimeout(afkTimeout);
+		}
+	}
+
+	$(document).on("mousemove keypress click", resetAfkTimer);
+
+	var isAdmin = false;
+	$(document).ready(function () {
+		$('[data-toggle="tooltip"]').tooltip();
+		// ====================== LOGIN CODE ======================
+
+		$("#loginForm").submit(function (event) {
+			event.preventDefault();
+			var username = "";
+			var submitButton = $(this).find('button[type="submit"]');
+			submitButton.prop("disabled", true);
+			submitButton.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
+
+			//validate SSO Login - validateSSO(): username,email,loginType
+			google.script.run
+				.withSuccessHandler(function (userData) {
+					//proceed with login
+					if (!userData) {
+						Swal.fire({
+							icon: "error",
+							title: "Authentication Failed!",
+							text: "Sorry, you are not authorized to access this tool. Please reach out to Sher Barrameda.",
+						});
+						submitButton.prop("disabled", false);
+						submitButton.html("Login");
+						return;
+					}
+					isAdmin = true;
+					isLoggedIn = true;
+					resetAfkTimer();
+					$("#user-first-name").text(userData.firstName);
+					$("#user-email").text(userData.email);
+
+					currentLoggedInUser = userData.email;
+
+					createEditableTable("", currentLoggedInUser);
+
+					// Hide ALL pages first
+					$("#homePage, #paymentPage, #requestPRPOPage, #uploadCostEstimatePage, #reportBugsPage").hide();
+
+					// Show ONLY the last visited page
+					$(".wrapper").show();
+					$("#loginPage").hide();
+
+					// Explicitly show only the last visited page
+					$("#" + lastVisitedPage).show();
+
+					updateContainerVisibility(userData.loginType);
+
+					Swal.fire({
+						icon: "success",
+						title: "Logged In!",
+						text: "Welcome, " + userData.firstName + "!",
+					});
+				})
+				.withFailureHandler(function (error) {
+					Swal.fire({
+						icon: "error",
+						title: "Error!",
+						text: "Failed to authenticate. Please try again later.",
+					});
+					submitButton.prop("disabled", false);
+					submitButton.html("Login");
+				})
+				.validateSSO();
+		});
+
+		//    $('#loginForm').submit(function(event) {
+		//     event.preventDefault();
+		//     var username = $('#username').val();
+
+		//     if (!username) {
+		//         Swal.fire({
+		//             icon: 'error',
+		//             title: 'Oops...',
+		//             text: 'Please enter an email address!'
+		//         });
+		//         return;
+		//     }
+		//     var submitButton = $(this).find('button[type="submit"]');
+		//     submitButton.prop('disabled', true);
+		//     submitButton.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
+
+		//     google.script.run.withSuccessHandler(function(loginType) {
+		//        if (loginType === 'admin') {
+		//             isAdmin = true;
+		//             isLoggedIn = true;
+		//             resetAfkTimer();
+		//             google.script.run.withSuccessHandler(function(data) {
+		//                 if (data) {
+		//                     $('#user-first-name').text(data.firstName);
+		//                     $('#user-email').text(data.email);
+
+		//                     currentLoggedInUser = data.email;
+
+		//                     createEditableTable('', currentLoggedInUser);
+
+		//                     // Hide ALL pages first
+		//                     $('#homePage, #paymentPage, #requestPRPOPage, #uploadCostEstimatePage').hide();
+
+		//                     // Show ONLY the last visited page
+		//                     $('.wrapper').show();
+		//                     $('#loginPage').hide();
+
+		//                     // Explicitly show only the last visited page
+		//                     $('#' + lastVisitedPage).show();
+
+		//                     updateContainerVisibility(loginType);
+
+		//                     Swal.fire({
+		//                         icon: 'success',
+		//                         title: 'Logged In!',
+		//                         text: 'Welcome, ' + data.firstName + '!'
+		//                     });
+		//                 }
+		//             }).getUserNameByUsername(username);
+		//         } else {
+		//             Swal.fire({
+		//                 icon: 'error',
+		//                 title: 'Authentication Failed!',
+		//                 text: 'Sorry, you are not authorized to access this tool. Please reach out to Sher Barrameda.'
+		//             });
+		//             submitButton.prop('disabled', false);
+		//             submitButton.html('Login');
+		//         }
+		//     }).withFailureHandler(function(error) {
+		//         Swal.fire({
+		//             icon: 'error',
+		//             title: 'Error!',
+		//             text: 'Failed to authenticate. Please try again later.'
+		//         });
+		//         submitButton.prop('disabled', false);
+		//         submitButton.html('Login');
+		//     }).validateLogin(username);
+		//  });
+
+		$("#logoutLink").click(function (event) {
+			event.preventDefault();
+			Swal.fire({
+				title: "Logout",
+				text: "Are you sure you want to logout?",
+				icon: "warning",
+				showCancelButton: true,
+				confirmButtonColor: "#3085d6",
+				cancelButtonColor: "#d33",
+				confirmButtonText: "Yes, logout",
+			}).then((result) => {
+				if (result.isConfirmed) {
+					// Capture the last visible page
+					lastVisitedPage = $('div[id$="Page"]:visible').attr("id") || "homePage";
+
+					// Reset UI completely
+					$(".wrapper").hide();
+					$("#loginPage").show();
+					$("#username").val("");
+					$('#loginForm button[type="submit"]').html("Login").prop("disabled", false);
+
+					isAdmin = false;
+					isLoggedIn = false;
+					clearTimeout(afkTimeout);
+				}
+			});
+		});
+
+		function updateContainerVisibility(loginType) {
+			if (loginType === "admin") {
+				$("#statusContainer").show();
+				$("#descriptionContainer").show();
+				$("#addBtn").hide();
+			} else {
+				$("#statusContainer").hide();
+				$("#descriptionContainer").hide();
+				$("#addBtn").show();
+			}
+		}
+
+		//end
+
+		// HIDE and UNHIDE PAGES ----------------------------------------------------------------------------------------------------------------------------------------------------------
+		// hideAllPages();
+		$("#homePage").show();
+		$("#previewAndTableContainer").hide();
+		$("#previewAndTableContainerPRPO").hide();
+
+		// Sidebar and Navbar Links
+		$("#sidebarHomeLink").on("click", function () {
+			hideAllPages();
+			$("#homePage").show();
+		});
+
+		$("#sidebarUploadCostEstimateLink, #uploadCostEstimateButton").on("click", function () {
+			hideAllPages();
+			$("#uploadCostEstimatePage").show();
+			$("#previewAndTableContainer").show();
+		});
+
+		$("#sidebarBulkInvoiceLink, #BulkInvoiceButton").on("click", function () {
+			hideAllPages();
+			$("#bulkInvoicePage").show();
+			$("#bulkInvoiceDataTable").show();
+		});
+
+		$("#sidebarRequestPRPOLink, #requestPRPOButton").on("click", function () {
+			hideAllPages();
+			$("#requestPRPOPage").show();
+
+			$("#previewAndTableContainerPRPO").show();
+		});
+
+		$("#sidebarReportBugLink, #reportBugButton").on("click", function () {
+			hideAllPages();
+			$("#reportBugsPage").show();
+		});
+
+		$("#sidebarHomeLink").on("click", function () {
+			hideAllPages();
+			$("#homePage").show();
+		});
+
+		// Sidebar Toggle
+		const sidebarToggle = document.querySelector("#sidebar-toggle");
+
+		sidebarToggle.addEventListener("click", function () {
+			document.querySelector("#sidebar").classList.toggle("collapsed");
+		});
+
+		//hide function
+		function hideAllPages() {
+			$("#previewAndTableContainer").hide();
+			$("#uploadCostEstimateForm")[0].reset();
+			$("#filePreview").hide();
+			$("#editableTable").hide();
+			$("#uploadStatus").html("");
+			$("#uploadCostEstimatePage").hide();
+			$(".homepage_card").hide();
+			$("#requestPRPOPage").hide();
+			$("#previewAndTableContainerPRPO").hide();
+			$("#filePreviewPRPO").hide();
+			$("#editableTablePRPO").hide();
+			$("#requestUploadStatus").html("");
+			$("#bulkInvoicePage").hide();
+			$("#reportBugsPage").hide();
+			resetModalForm();
+			resetBulkInvoicePage();
+		}
+
+		//UPLOAD COST ESTIMATE PAGE ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+		const fileUploadInput = document.getElementById("fileUpload");
+		let reminderShown = false;
+
+		// Create a message element to display the reminder
+		const fileUploadMessage = document.createElement("div");
+		fileUploadMessage.id = "fileUploadMessage";
+		fileUploadMessage.style.color = "yellow"; // Change the color to red for visibility
+		fileUploadMessage.textContent = "Please make sure you have chosen the correct file before you click the upload button.";
+		fileUploadMessage.style.display = "none"; // Initially hidden
+		fileUploadInput.parentNode.insertBefore(fileUploadMessage, fileUploadInput.nextSibling); // Insert the message below the file input
+
+		// Create an error message element for file name validation
+		const fileErrorMessage = document.createElement("div");
+		fileErrorMessage.id = "fileErrorMessage";
+		fileErrorMessage.style.color = "red"; // Change the color to red for visibility
+		fileErrorMessage.style.display = "none"; // Initially hidden
+		fileUploadInput.parentNode.insertBefore(fileErrorMessage, fileUploadMessage.nextSibling); // Insert the error message below the reminder message
+
+		fileUploadInput.addEventListener("click", function (event) {
+			if (!reminderShown) {
+				event.preventDefault(); // Prevent the file dialog from opening immediately
+
+				// Show SweetAlert reminder
+				Swal.fire({
+					title: "Reminder",
+					text: "Please make sure you upload a SIGNED CE file and that the file name follows this format: IO_PartnerName_CENumber.pdf ",
+					icon: "info",
+					confirmButtonText: "OK",
+				}).then((result) => {
+					if (result.isConfirmed) {
+						reminderShown = true; // Disable the reminder for future clicks
+
+						// Manually trigger the file input click after the SweetAlert closes
+						setTimeout(() => {
+							fileUploadInput.click(); // Open the file dialog
+						}, 0);
+					}
+				});
+			}
+		});
+
+		// Reset reminder on file selection
+		fileUploadInput.addEventListener("change", function () {
+			reminderShown = false; // Re-enable the reminder
+			fileUploadMessage.style.display = "block"; // Show the message when a file is selected
+			fileErrorMessage.style.display = "none"; // Hide error message when a file is chosen
+		});
+
+		// Function to handle file upload
+		function handleFileUpload() {
+			const fileInput = document.getElementById("fileUpload");
+			const file = fileInput.files[0];
+
+			if (!file) {
+				fileErrorMessage.textContent = "No file selected.";
+				fileErrorMessage.style.display = "block"; // Show error message if no file is selected
+				return;
+			}
+
+			// Validate file name
+			const namingConvention = /^\w{11,15}_.+_.+(_.+)?$/; //naming convention
+			if (!fileNamePattern.test(file.name)) {
+				fileErrorMessage.textContent = "Invalid file name. It should be in the format IO_PartnerName_CENumber.pdf";
+				fileErrorMessage.style.display = "block"; // Show the file error message
+				return;
+			}
+
+			// Hide the error message if file name is valid
+			fileErrorMessage.style.display = "none";
+
+			// Show the upload message
+			fileUploadMessage.style.display = "block"; // Show the message
+		}
+
+		function success(data, fileName) {
+			console.log("File upload success. File name:", fileName);
+			document.getElementById("progressSpinner").style.display = "none";
+			if (data.error) {
+				document.getElementById("uploadStatus").innerHTML = "<strong>Error:</strong> " + data.error;
+				setTimeout(function () {
+					$("#uploadStatus").html("");
+				}, 5 * 1000); //5 seconds
+			} else {
+				document.getElementById("uploadStatus").innerHTML =
+					'<strong>File Uploaded Successfully. Please fill-up the details and click SAVE button below to complete submission of CE or contract</strong><br /><a target="_blank" href="' +
+					data.fileUrl +
+					'">' +
+					data.fileName +
+					"</a>";
+				document.getElementById("readFileButton").disabled = false;
+
+				// Store the uploaded file name
+				uploadedFileName = fileName;
+				console.log("Stored uploadedFileName:", uploadedFileName);
+			}
+
+			fileUploadMessage.style.display = "none";
+			fileErrorMessage.style.display = "none";
+		}
+
+		function failure(error) {
+			document.getElementById("progressSpinner").style.display = "none";
+			document.getElementById("uploadStatus").innerHTML = `<strong>Error:</strong> ${error.message}`;
+			setTimeout(function () {
+				$("#uploadStatus").html("");
+			}, 5 * 1000); //5 seconds
+		}
+
+		// Upload Cost Estimate Page
+		$("#uploadCostEstimateForm").submit(function (event) {
+			event.preventDefault();
+			const fileInput = document.getElementById("fileUpload");
+			const file = fileInput.files[0];
+			const ioNumber = $("#ioNumber").val();
+
+			if (!file) {
+				$("#fileError").show();
+				return;
+			}
+
+			// Validate file name
+			const fileNamePattern = /^\w{11,15}_.+_.+(_.+)?$/;
+			if (!fileNamePattern.test(file.name)) {
+				$("#fileError").text("Invalid file name. It should be in the format IO_PartnerName_CENumber.pdf").show();
+				return;
+			}
+
+			$("#fileError").hide();
+			$("#progressSpinner").show();
+
+			const reader = new FileReader();
+			reader.onload = function (e) {
+				const fileData = e.target.result.split(",")[1]; // Get base64 data
+				google.script.run.withSuccessHandler(handleUploadSuccess).withFailureHandler(handleUploadFailure).uploadFile(fileData, file.name, ioNumber);
+			};
+			reader.readAsDataURL(file);
+
+			// Hide the message when the upload button is clicked
+			fileUploadMessage.style.display = "none";
+			fileErrorMessage.style.display = "none"; // Hide error message when the upload button is clicked
+		});
+
+		function handleUploadSuccess(result) {
+			$("#progressSpinner").hide();
+
+			if (result.error) {
+				$("#uploadStatus").html('<div class="alert alert-danger">' + result.error + "</div>");
+				setTimeout(function () {
+					$("#uploadStatus").html("");
+				}, 5 * 1000); //5 seconds
+				$("#previewAndTableContainer").hide();
+				return;
+			}
+
+			$("#uploadStatus").html(
+				'<div class="alert alert-success">File Uploaded Successfully. Please fill-up the details and click SAVE button below to complete submission of CE or contract</div>'
+			);
+
+			// Show the preview container
+			$("#previewAndTableContainer").show();
+			$("#filePreview").show();
+
+			// Set up the preview iframe
+			const previewFrame = document.getElementById("pdfPreview");
+
+			// Use the embedded viewer URL format - Changed to string concatenation
+			const previewUrl = "https://drive.google.com/file/d/" + result.fileId + "/preview";
+			previewFrame.src = previewUrl;
+
+			// Add error handling for the iframe
+			previewFrame.onerror = function () {
+				$("#uploadStatus").append('<div class="alert alert-warning">Preview may take a moment to load. You can access the file directly using the link below.</div>');
+			};
+
+			// Create a direct link to the file
+			const existingLink = document.querySelector("#filePreview .direct-link");
+			if (existingLink) {
+				existingLink.remove();
+			}
+
+			const directLink = document.createElement("a");
+			// Changed to string concatenation
+			directLink.href = "https://drive.google.com/file/d/" + result.fileId + "/view";
+			directLink.target = "_blank";
+			directLink.className = "btn btn-secondary mt-2 mb-3 direct-link";
+			directLink.textContent = "Open file in new tab";
+
+			// Insert the link before the iframe
+			const previewContainer = document.getElementById("filePreview");
+			previewContainer.insertBefore(directLink, previewFrame);
+
+			// Capture the uploaded file name
+			uploadedFileName = result.fileName;
+
+			// Reset the file input
+			document.getElementById("fileUpload").value = "";
+
+			const ioNumber = $("#ioNumber").val();
+
+			if (typeof currentLoggedInUser === "undefined") {
+				console.error("currentLoggedInUser is not defined");
+				return;
+			}
+
+			createEditableTable(ioNumber, currentLoggedInUser, uploadedFileName);
+		}
+
+		// Add this to ensure preview container is hidden initially
+		$(document).ready(function () {
+			$("#previewAndTableContainer").hide();
+		});
+
+		function handleUploadFailure(error) {
+			$("#progressSpinner").hide();
+			$("#uploadStatus").html("<strong>Error:</strong> " + error.message);
+			setTimeout(function () {
+				$("#uploadStatus").html("");
+			}, 5 * 1000); //5 seconds
+		}
+
+		// Function to format the date
+		function formatDate(timestamp) {
+			const date = new Date(timestamp);
+			const options = {
+				month: "2-digit",
+				day: "2-digit",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+				hour12: true,
+			};
+			const formattedDate = date.toLocaleString("en-US", options);
+			return formattedDate.replace(",", ""); // Remove comma if you want "mm/dd/yyyy; hh:mm AM/PM" format
+		}
+
+		function createEditableTable(ioNumber = "", username = "", uploadedFileName = "") {
+			console.log("Username passed to createEditableTable:", username);
+
+			const currentDate = formatDate(new Date().toISOString());
+
+			// Create options for Payment Terms dropdown with 15, 30, 45, and 60 days, and default set to 30
+			const paymentTermsDaysOptions = [15, 30, 45, 60].map((day) => `<option value="${day}" ${day === 30 ? "selected" : ""}>${day}</option>`).join("");
+
+			// Create options for the Currency dropdown
+			const currencyOptions = ["PHP", "USD"].map((currency) => `<option value="${currency}">${currency}</option>`).join("");
+
+			// Build the HTML structure including GL Code and GL Description fields
+			const tableHtml = `
+    <style>
+      td.required::after {
+        content: "*";
+        color: red;
+        margin-left: 5px;
+      }
+      .hidden-row {
+        display: none;
+      }
+    </style>
+    <div class="inline-flex">
+      <h3>Input Cost Estimate Data Here 
+      <i class="fa-regular fa-circle-question" data-toggle="tooltip" data-placement="top" title="Yellow input fields are required" aria-hidden="true"></i>
+    </h3>
+    </div>
+    <table class="table table-dark table-striped">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Time Stamp (Tool Generated)</td><td>${currentDate}</td></tr>
+        <tr><td>Email Address</td><td>${username}</td></tr>
+        <tr><td>Uploaded CE File</td><td>${uploadedFileName}</td></tr>
+        <tr><td class="required">CE Start Date</td><td><input type="date" id="projectStartDate" class="form-control" required /></td></tr>
+        <tr><td class="required">CE End Date</td><td><input type="date" id="projectEndDate" class="form-control" required /></td></tr>
+        <tr><td class="required">Date of Issue</td><td><input type="date" id="dateOfIssue" class="form-control" required /></td></tr>
+        <tr><td class="required">Program Name</td><td contenteditable="true" required></td></tr>
+        <tr>
+          <td class="required">Vendor Name</td>
+          <td>
+            <input type="text" id="vendorName" class="form-control" placeholder="Start typing vendor name..." autocomplete="off" required>
+            <ul id="vendorSuggestions" class="list-group" style="display:none; position: absolute; max-height: 150px; overflow-y: auto; z-index: 1000;"></ul>
+          </td>
+        </tr>
+        <tr>
+          <td class="required">Signed by Vendor?</td>
+          <td>
+            <select id="vendorSignatory" required>
+              <option value="" disabled selected hidden>Select an option</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </td>
+        </tr>
+        <tr><td class="required">Globe Authorize Signatory</td><td contenteditable="true" required></td></tr>
+        <tr>
+          <td class="required">Payment Terms</td>
+          <td>
+            <select id="paymentTermsDays" required>
+              <option value="" disabled hidden>Select a Number</option>
+              ${paymentTermsDaysOptions}
+            </select> day(s) from receipt of Valid Invoice
+          </td>
+        </tr>
+        <tr><td class="required">Cost Estimate No.</td><td contenteditable="true" required></td></tr>
+        <tr>
+          <td class="required">Currency</td>
+          <td>
+            <select id="currency" required>
+              <option value="" disabled selected hidden>Select a Currency</option>
+              ${currencyOptions}
+            </select>
+          </td>
+        </tr>
+        <tr><td class="required">Total Cost Estimate Amount (Vat-ex)</td><td><input type="text" id="totalCostEstimate_1" class="form-control" required /></td></tr>
+        <tr><td>IO Number</td><td id="editableIoNumber" style="font-weight: bold; color: #87CEEB;">${ioNumber}</td></tr>
+        <tr><td>IO BALANCE</td><td id="ioBalance" style="font-weight: bold; color: #87CEEB;">Loading...</td></tr>
+        <tr id="multipleIoContainer" class="hidden-row">
+          <td>Additional IO Numbers:</td>
+          <td>
+            <table id="multipleIoTable" class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>IO Number</th>
+                  <th>Total Cost Estimate Amount (Vat-ex)</th>
+                  <th>IO Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <button type="button" id="addMoreIoButton" class="btn btn-secondary">+ Add more IO</button>
+          </td>
+        </tr>
+        <tr><td class="required">Cost Center</td><td><select id="costCenter" required></select></td></tr>
+        <tr><td>Remarks</td><td><textarea id="remarks" class="form-control" rows="4"></textarea></td></tr>
+        <tr><td>GL Code</td><td id="glCode"></td></tr>
+        <tr><td>GL Description</td><td id="glDescription"></td></tr>
+      </tbody>
+    </table>
+    <div class="saveButton-container mt-3">
+      <button id="saveButton" class="btn btn-primary">Save</button>
+    </div>
+  `;
+
+			// Function to format number with commas and decimal support
+			function formatNumber(value) {
+				// Remove all characters except digits and decimal point
+				value = value.replace(/[^\d.]/g, "");
+
+				// Handle multiple decimal points - keep only the first one
+				const parts = value.split(".");
+				if (parts.length > 2) {
+					value = parts[0] + "." + parts[1];
+				}
+
+				// Split number into integer and decimal parts
+				const [integerPart, decimalPart] = value.split(".");
+
+				// Format integer part with commas
+				const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+				// Return formatted number with decimal if it exists
+				return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
+			}
+
+			let ioCounter = 0;
+
+			// Function to add new IO row
+			function addNewIoRow(e) {
+				e.preventDefault();
+
+				if (ioCounter === 0) {
+					$("#multipleIoContainer").removeClass("hidden-row");
+				}
+
+				ioCounter++;
+				const tbody = document.querySelector("#multipleIoTable tbody");
+
+				if (tbody.rows.length < 10) {
+					const newRow = document.createElement("tr");
+					newRow.innerHTML = `
+        <td><input type="text" class="form-control io-number" name="multipleIoNumber[]" required></td>
+        <td><input type="text" class="form-control amount-input" name="multipleIoAmount[]" required></td>
+        <td class="io-balance">-</td>
+      `;
+
+					tbody.appendChild(newRow);
+
+					// Add event listeners to the new inputs
+					const newAmountInput = newRow.querySelector(".amount-input");
+					const newIoInput = newRow.querySelector(".io-number");
+
+					newAmountInput.addEventListener("input", function (e) {
+						const formattedValue = formatNumber(e.target.value);
+						e.target.value = formattedValue;
+					});
+
+					newIoInput.addEventListener("change", function (e) {
+						const ioNumber = e.target.value;
+						const balanceCell = e.target.closest("tr").querySelector(".io-balance");
+						if (ioNumber) {
+							google.script.run
+								.withSuccessHandler(function (balance) {
+									balanceCell.textContent =
+										balance !== null ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance) : "Balance not found";
+								})
+								.getIOBalance(ioNumber);
+						}
+					});
+				} else {
+					alert("You can only add up to 10 IO entries.");
+				}
+			}
+
+			// Inject the table HTML into the page
+			$("#editableTable").html(tableHtml).show();
+
+			// Remove any existing event listeners
+			$(document).off("click", "#addMoreIoButton");
+
+			// Add event listener for the Add More IO button
+			$(document).on("click", "#addMoreIoButton", addNewIoRow);
+
+			// Add event listener for amount inputs
+			$(document).on("input", ".amount-input", function (e) {
+				const formattedValue = formatNumber(e.target.value);
+				e.target.value = formattedValue;
+			});
+
+			// Updated event listener for the total cost estimate input
+			$("#totalCostEstimate_1").on("input", function (e) {
+				let currentValue = e.target.value;
+				// Preserve cursor position
+				const start = e.target.selectionStart;
+				const end = e.target.selectionEnd;
+				const formattedValue = formatNumber(currentValue);
+				e.target.value = formattedValue;
+
+				// Restore cursor position
+				if (currentValue.length === formattedValue.length) {
+					e.target.setSelectionRange(start, end);
+				}
+			});
+
+			// Fetch IO Balance
+			if (ioNumber) {
+				google.script.run.withSuccessHandler(setIOBalance).getIOBalance(ioNumber);
+			} else {
+				$("#ioBalance").text("No IO Number provided");
+			}
+
+			// Fetch Cost Center data
+			google.script.run.withSuccessHandler(populateCostCenterDropdown).getCostCenterOptions();
+
+			// Add event listener for the Save button
+			$("#saveButton").on("click", saveEditableData);
+
+			// Fetch all vendor names upfront
+			let allVendors = [];
+			google.script.run
+				.withSuccessHandler(function (vendors) {
+					allVendors = vendors; // Store all vendor names
+				})
+				.searchVendors();
+
+			// Vendor Name Input Event
+			let previousValidQuery = ""; // Track the previous valid query
+			$("#vendorName").on("input", function () {
+				const query = $(this).val().toLowerCase();
+				if (query.length > 0) {
+					// Filter vendors locally (no backend call)
+					let matchedVendors = allVendors.filter((vendor) => vendor.toLowerCase().startsWith(query));
+
+					// If no vendors match the current query, fall back to the previous valid query
+					if (matchedVendors.length === 0 && previousValidQuery) {
+						matchedVendors = allVendors.filter((vendor) => vendor.toLowerCase().startsWith(previousValidQuery));
+					} else if (matchedVendors.length > 0) {
+						// Update the previous valid query if the current query has matches
+						previousValidQuery = query;
+					}
+
+					updateVendorSuggestions(matchedVendors);
+				} else {
+					$("#vendorSuggestions").hide();
+				}
+			});
+
+			// Handle vendor suggestion click
+			$(document).on("click", "#vendorSuggestions li", function () {
+				const selectedVendor = $(this).text();
+				$("#vendorName").val(selectedVendor);
+				$("#vendorSuggestions").hide();
+				populateGLInfo(selectedVendor);
+			});
+
+			function updateVendorSuggestions(vendors) {
+				const $suggestionsList = $("#vendorSuggestions");
+				$suggestionsList.empty();
+
+				if (vendors.length > 0) {
+					vendors.forEach((vendor) => {
+						$suggestionsList.append(`<li class="list-group-item">${vendor}</li>`);
+					});
+					$suggestionsList.show();
+				} else {
+					$suggestionsList.hide();
+				}
+			}
+
+			function populateGLInfo(vendorName) {
+				google.script.run
+					.withSuccessHandler(function (result) {
+						if (result.glCode && result.glDescription) {
+							$("#glCode").text(result.glCode);
+							$("#glDescription").text(result.glDescription);
+						} else {
+							$("#glCode").text("");
+							$("#glDescription").text("");
+							showGLErrorMessage();
+						}
+					})
+					.getGLInfo(vendorName);
+			}
+
+			function setIOBalance(balance) {
+				$("#ioBalance").text(balance !== null ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance) : "Balance not found");
+			}
+
+			function showGLErrorMessage() {
+				Swal.fire({
+					icon: "error",
+					title: "Missing GL Information",
+					text: "The vendor you entered does not have GL Code and GL Description yet. Please update the information or contact the budget team. You cannot upload a CE at this time.",
+					footer: '<a href="https://docs.google.com/forms/d/e/1FAIpQLSfHRIjr8qaoCV6bm8SzEo5ysPcp2e6to-10tt7Udk7uBRSfkA/viewform" target="_blank" rel="noopener noreferrer">Update Vendor Information</a>',
+					confirmButtonText: "OK",
+				}).then((result) => {
+					if (result.isConfirmed) {
+						hideAllPages();
+						$("#homePage").show();
+					}
+				});
+			}
+
+			function populateCostCenterDropdown(costCenters) {
+				const options = costCenters.map((option) => `<option value="${option}">${option}</option>`).join("");
+				$("#costCenter").append(options);
+			}
+		}
+
+		//update this
+
+		//save the data
+		// Shared state and utility functions
+		let globalBaseData = null;
+		let globalAllFieldsFilled = true;
+
+		function validateField(field, element, value, requiredFields) {
+			if (!requiredFields.includes(field)) return true;
+			if (!value || value.trim() === "") {
+				console.log("Empty required field:", field);
+				globalAllFieldsFilled = false;
+				if (element && element.addClass) {
+					element.addClass("border-danger");
+				}
+				return false;
+			}
+			if (element && element.removeClass) {
+				element.removeClass("border-danger");
+			}
+			return true;
+		}
+
+		function collectBaseData(requiredFields) {
+			const baseData = {};
+			$("#editableTable tbody tr").each(function () {
+				const fieldCell = $(this).find("td:first");
+				const field = fieldCell.text().trim();
+				let value;
+
+				// Skip the multiple IO table container
+				if (field === "Additional IO Numbers:" || field.includes("Please indicate")) {
+					return true;
+				}
+
+				switch (true) {
+					case $(this).find('input[type="date"]').length > 0:
+						const dateInput = $(this).find('input[type="date"]');
+						value = dateInput.val();
+						validateField(field, dateInput, value, requiredFields);
+						break;
+
+					case $(this).find("select").length > 0:
+						const selectElement = $(this).find("select");
+						value = selectElement.val();
+						validateField(field, selectElement, value, requiredFields);
+						break;
+
+					case field === "Total Cost Estimate Amount (Vat-ex)":
+						const costInput = $(this).find("input#totalCostEstimate_1");
+						value = costInput.val();
+						if (value) {
+							value = value.replace(/,/g, "");
+						}
+						validateField(field, costInput, value, requiredFields);
+						break;
+
+					case field === "Remarks":
+						value = $(this).find("textarea").val().trim();
+						break;
+
+					case field === "Vendor Name":
+						value = $("#vendorName").val().trim();
+						validateField(field, $("#vendorName"), value, requiredFields);
+						break;
+
+					case field === "IO Number":
+					case field === "IO BALANCE":
+					case field === "GL Code":
+					case field === "GL Description":
+					case field === "Time Stamp (Tool Generated)":
+					case field === "Email Address":
+					case field === "Uploaded CE File":
+						value = $(this).find("td:last").text().trim();
+						break;
+
+					default:
+						const cell = $(this).find("td:last");
+						value = cell.text().trim();
+						if (fieldCell.hasClass("required")) {
+							validateField(field, cell, value, requiredFields);
+						}
+				}
+
+				if (value !== undefined) {
+					baseData[field] = value;
+				}
+			});
+			return baseData;
+		}
+
+		function saveEditableData() {
+			globalAllFieldsFilled = true;
+
+			// Define required fields
+			const requiredFields = [
+				"CE Start Date",
+				"CE End Date",
+				"Date of Issue",
+				"Program Name",
+				"Vendor Name",
+				"Signed by Vendor?",
+				"Globe Authorize Signatory",
+				"Payment Terms",
+				"Cost Estimate No.",
+				"Currency",
+				"Total Cost Estimate Amount (Vat-ex)",
+				"Cost Center",
+			];
+
+			// Collect base data
+			globalBaseData = collectBaseData(requiredFields);
+
+			// Collect additional IOs
+			const additionalIOs = [];
+			$("#multipleIoTable tbody tr").each(function () {
+				const ioNumber = $(this).find(".io-number").val();
+				const amount = $(this).find(".amount-input").val();
+
+				if (ioNumber && amount) {
+					additionalIOs.push({
+						ioNumber: ioNumber,
+						amount: amount.replace(/,/g, ""),
+					});
+				}
+			});
+
+			if (!globalAllFieldsFilled) {
+				Swal.fire({
+					icon: "warning",
+					title: "Incomplete Fields",
+					text: "Please fill in all required fields before saving.",
+					showConfirmButton: true,
+				});
+				return;
+			}
+
+			// Disable submit button
+			const submitButton = $("#saveButton");
+			submitButton.prop("disabled", true);
+			submitButton.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
+
+			// Check for duplicate Cost Estimate No. before proceeding
+			google.script.run
+				.withSuccessHandler(function (isDuplicate) {
+					if (isDuplicate) {
+						submitButton.prop("disabled", false);
+						submitButton.html("Save");
+						Swal.fire({
+							icon: "warning",
+							title: "Duplicate Cost Estimate No.",
+							text: "This Cost Estimate No. already exists in the database. Please use a different number.",
+							showConfirmButton: true,
+						});
+						return;
+					}
+
+					// Proceed with the saving logic if no duplicates are found
+					startSaving();
+				})
+				.checkDuplicateCostEstimateNo(globalBaseData["Cost Estimate No."]);
+		}
+
+		function startSaving() {
+			// Use the global baseData
+			const additionalIOs = [];
+			$("#multipleIoTable tbody tr").each(function () {
+				const ioNumber = $(this).find(".io-number").val();
+				const amount = $(this).find(".amount-input").val();
+
+				if (ioNumber && amount) {
+					additionalIOs.push({
+						ioNumber: ioNumber,
+						amount: amount.replace(/,/g, ""),
+					});
+				}
+			});
+
+			// Prepare all data to be saved
+			const allDataToSave = [globalBaseData];
+
+			// Add additional IOs to the save queue
+			additionalIOs.forEach((io) => {
+				const newData = { ...globalBaseData };
+				newData["IO Number"] = io.ioNumber;
+				newData["Total Cost Estimate Amount (Vat-ex)"] = io.amount;
+				allDataToSave.push(newData);
+			});
+
+			// Handle file upload if present
+			if (typeof uploadedFileName !== "undefined" && uploadedFileName) {
+				const cleanFileName = uploadedFileName.replace(/\.(pdf|xls|xlsx)$/i, "");
+				google.script.run
+					.withSuccessHandler(function (fileUrl) {
+						if (fileUrl) {
+							allDataToSave.forEach((data, idx) => {
+								data["Uploaded CE File"] = `=HYPERLINK("${fileUrl}", "${cleanFileName}")`;
+							});
+						} else {
+							allDataToSave.forEach((data, idx) => {
+								data["Uploaded CE File"] = cleanFileName;
+							});
+						}
+						saveSequentially(allDataToSave);
+					})
+					.getUploadedFileUrl(uploadedFileName);
+			} else {
+				saveSequentially(allDataToSave);
+			}
+		}
+
+		function saveSequentially(dataArray, index = 0) {
+			const submitButton = $("#saveButton");
+
+			if (index >= dataArray.length) {
+				// All saves completed
+				handleSaveSuccess(globalBaseData["Cost Estimate No."], globalBaseData["Cost Center"]);
+				return;
+			}
+
+			const currentData = dataArray[index];
+
+			// Create a promise-based save operation
+			const saveOperation = new Promise((resolve, reject) => {
+				google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).saveDataToSpreadsheet(currentData);
+			});
+
+			// Set a timeout for the operation
+			const timeout = new Promise((_, reject) => {
+				setTimeout(() => reject(new Error("Operation timed out")), 10000); // 10 second timeout
+			});
+
+			// Race between the save operation and timeout
+			Promise.race([saveOperation, timeout])
+				.then((result) => {
+					console.log(`Save ${index + 1} completed:`, result);
+					// Immediately proceed to next save
+					saveSequentially(dataArray, index + 1);
+				})
+				.catch((error) => {
+					console.error("Save error:", error);
+
+					if (error.message === "Operation timed out") {
+						// If timed out, move to next save anyway
+						console.log("Save operation timed out, moving to next...");
+						saveSequentially(dataArray, index + 1);
+					} else {
+						// For other errors, proceed but warn if it's not the common spreadsheet error
+						if (!error.toString().includes("Service Spreadsheets failed while accessing document")) {
+							Swal.fire({
+								icon: "warning",
+								title: "Warning",
+								text: `Some data may not have saved properly. Continuing with remaining saves...`,
+								showConfirmButton: false,
+								timer: 2000,
+							});
+						}
+						saveSequentially(dataArray, index + 1);
+					}
+				});
+		}
+
+		function handleSaveSuccess(costEstimateNo, costCenter) {
+			// Send the email immediately after saving
+			google.script.run
+				.withSuccessHandler(function () {
+					// Show success message after the email is sent
+					Swal.fire({
+						icon: "success",
+						title: "Data Saved",
+						text: "The CE amount you have uploaded is subject to review by our Budget Management Team. We will be in touch soon with an update!",
+						showConfirmButton: true,
+						confirmButtonText: "OK",
+					}).then(() => {
+						// Reset the Cost Estimate Page
+						$("#uploadCostEstimateForm")[0].reset();
+						$("#filePreview").hide();
+						$("#editableTable").hide();
+						$("#uploadStatus").html("");
+
+						// Re-enable the button and reset text
+						const submitButton = $("#saveButton");
+						submitButton.prop("disabled", false);
+						submitButton.html("Save");
+					});
+				})
+				.withFailureHandler(function (error) {
+					// Handle email sending failure
+					Swal.fire({
+						icon: "error",
+						title: "Email Error",
+						text: "The data was saved, but the email could not be sent. Error: " + error.message,
+					});
+				})
+				.sendNotificationCEEmail(costCenter);
+
+			// Send confirmation email to the logged-in user
+			const currentUserEmail = currentLoggedInUser;
+			google.script.run.sendCEConfirmationEmail(currentUserEmail, costEstimateNo);
+		}
+
+		function handleSaveFailure(error) {
+			Swal.fire({
+				icon: "error",
+				title: "Error",
+				text: "Failed to save data: " + error.message,
+			}).then(() => {
+				// Re-enable the button and reset text
+				const submitButton = $("#saveButton");
+				submitButton.prop("disabled", false);
+				submitButton.html("Save");
+			});
+		}
+
+		//REQUEST FOR PR/PO PAGE ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+		const requestFileUploadInput = document.getElementById("requestFileUpload");
+		let requestReminderShown = false;
+		let uploadedFile; // Declare a variable to store the uploaded file
+
+		// Create a reminder message element
+		const reminderMessage = document.createElement("div");
+		reminderMessage.style.color = "yellow"; // Set text color to yellow
+		reminderMessage.style.display = "none"; // Initially hide the message
+		reminderMessage.textContent = "Please make sure you have chosen the correct file before you click the upload button.";
+		requestFileUploadInput.parentNode.insertBefore(reminderMessage, requestFileUploadInput.nextSibling);
+
+		// Show reminder before uploading file
+		requestFileUploadInput.addEventListener("click", function (event) {
+			if (!requestReminderShown) {
+				event.preventDefault(); // Prevent the file dialog from opening immediately
+
+				// Show SweetAlert reminder
+				Swal.fire({
+					title: "Reminder",
+					text: "Please make sure you upload supporting documents such as signed CE, signed Contract or approved PWP memo and that the file name follows this format: IO_PartnerName_AnyNumber.pdf",
+					icon: "info",
+					confirmButtonText: "OK",
+				}).then((result) => {
+					if (result.isConfirmed) {
+						requestReminderShown = true; // Disable the reminder for future clicks
+
+						// Manually trigger the file input click after the SweetAlert closes
+						setTimeout(() => {
+							requestFileUploadInput.click(); // Open the file dialog
+						}, 0);
+					}
+				});
+			}
+		});
+
+		// Reset reminder on file selection
+		requestFileUploadInput.addEventListener("change", function () {
+			uploadedFile = requestFileUploadInput.files[0]; // Store the selected file in the variable
+
+			// Show the reminder message again
+			reminderMessage.style.display = "block"; // Show the reminder message
+
+			// Validate file name against the naming convention
+			const fileName = uploadedFile.name;
+			const namingConvention = /^\w{11,15}_.+_.+(_.+)?$/;
+
+			if (!namingConvention.test(fileName)) {
+				$("#requestFileError").text("Invalid file name. It should be in the format IO_PartnerName_CENumber.pdf").show();
+				uploadedFile = null; // Reset uploaded file if invalid
+				reminderMessage.style.display = "none"; // Hide reminder if the file name is invalid
+				return; // Exit if the file name is invalid
+			}
+
+			$("#requestFileError").hide(); // Hide error if the file name is valid
+		});
+
+		// Handle form submission and file upload
+		$("#requestPRPOForm").submit(function (event) {
+			event.preventDefault();
+
+			const file = uploadedFile; // Use the stored uploaded file
+			const ioNumber = $("#requestIONumber").val();
+
+			if (!file) {
+				$("#requestFileError").text("Please select a valid file.").show();
+				return;
+			}
+
+			$("#requestFileError").hide();
+			$("#requestProgressSpinner").show(); // Show spinner when file upload starts
+
+			const reader = new FileReader();
+			reader.onload = function (e) {
+				const fileData = e.target.result.split(",")[1]; // Get base64 data
+
+				// Call checkIfFileExists with overwrite set to false
+				google.script.run
+					.withSuccessHandler(handleRequestUploadSuccess.bind(null, file.name, fileData, ioNumber))
+					.withFailureHandler(handleRequestUploadFailure)
+					.uploadRequestFile(fileData, file.name, ioNumber, false); // Start with no overwrite
+			};
+			reader.readAsDataURL(file);
+
+			// Hide the reminder message when the upload button is clicked
+			reminderMessage.style.display = "none";
+			requestReminderShown = false; // Allow the reminder to show again
+		});
+
+		// Modify the handleRequestUploadSuccess function
+		function handleRequestUploadSuccess(fileName, fileData, ioNumber, result) {
+			$("#requestProgressSpinner").hide();
+
+			if (result.error) {
+				$("#requestUploadStatus").html(`<div class="alert alert-danger">${result.error}</div>`);
+				setTimeout(function () {
+					$("#requestUploadStatus").html("");
+				}, 5 * 1000); //5 seconds
+				return;
+			}
+
+			// Store the uploaded file name and file id globally
+			uploadedRequestFileName = fileName;
+			uploadedRequestFileId = result.fileId;
+			console.log("Stored fileId:", uploadedRequestFileId);
+			console.log("Stored uploadedRequestFileName:", uploadedRequestFileName);
+
+			$("#requestUploadStatus").html(
+				'<div class="alert alert-success">File Uploaded Successfully. Please fill-up the details and click SAVE button below to complete submission of PR/PO or contract</div>'
+			);
+
+			$("#filePreviewPRPO").show();
+			$("#pdfPreviewPRPO").attr("src", "https://drive.google.com/file/d/" + result.fileId + "/preview");
+
+			if (typeof currentLoggedInUser === "undefined") {
+				console.error("currentLoggedInUser is not defined");
+				return;
+			}
+
+			// Pass the uploaded file name to createEditableTablePRPO
+			createEditableTablePRPO(ioNumber, currentLoggedInUser, fileName);
+		}
+
+		function handleRequestUploadFailure(error) {
+			$("#requestProgressSpinner").hide(); // Hide the progress spinner on failure
+			$("#requestUploadStatus").html("<strong>Error:</strong> " + error.message);
+			setTimeout(function () {
+				$("#requestUploadStatus").html("");
+			}, 5 * 1000); //5 seconds
+		}
+
+		// Update this (line 1055)
+		function createEditableTablePRPO(ioNumber = "", username = "", fileName = "") {
+			console.log("Username passed to createEditableTable:", username);
+			console.log("File name passed to createEditableTable:", fileName);
+
+			const currentDatePRPO = formatDate(new Date().toISOString());
+
+			// Get the file information from the preview iframe
+			const fileId = $("#pdfPreviewPRPO").attr("src")?.split("/")[4] || "";
+
+			// Remove file extension if it exists
+			const cleanFileName = fileName.replace(/\.(pdf|xls|xlsx)$/i, "");
+
+			// Build the HTML table
+			const tableHtml = `
+    <style>
+        td.required::after {
+            content: "*";
+            color: red;
+            margin-left: 5px;
+        }
+    </style>
+
+    <h3>Input PR/PO Data Here</h3>
+    <table class="table table-dark table-striped">
+        <thead>
+            <tr>
+                <th>Field</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Time Stamp (Tool Generated)</td><td>${currentDatePRPO}</td></tr>
+            <tr><td>Email Address</td><td>${username}</td></tr>
+            <tr>
+                <td class="required">Vendor Name</td>
+                <td>
+                    <input type="text" id="vendorNamePRPO" class="form-control" placeholder="Start typing vendor name..." autocomplete="off">
+                    <ul id="vendorSuggestionsPRPO" class="list-group" style="display:none; position: absolute; max-height: 150px; overflow-y: auto; z-index: 1000;"></ul>
+                </td>
+            </tr>
+            <tr><td class="required">Description</td><td contenteditable="true"></td></tr>
+            <tr><td class="required">Vat Ex/Net Amount</td><td contenteditable="true"></td></tr>
+            <tr><td class="required">Proponent</td><td contenteditable="true"></td></tr>
+            <tr><td class="required">Additional Approvers</td><td contenteditable="true"></td></tr>
+            <tr style="font-weight: bold; color: #87CEEB;">
+                <td>IO Number</td>
+                <td id="editableIoNumber">${ioNumber}</td>
+            </tr>
+            <tr>
+                <td class="required">Cost Center</td>
+                <td>
+                    <select id="costCenterPRPO" style="font-size: 16px; padding: 5px;">
+                        <option value="" disabled selected hidden>Select a Cost Center</option>
+                    </select>
+                </td>
+            </tr>
+            <tr><td class="required">GL Account</td><td id="glCode"></td></tr>
+            <tr><td class="required">Program Name</td><td contenteditable="true"></td></tr>
+            <tr>
+              <td>Uploaded PR/PO File</td>
+              <td id="uploadedRequestFile">${cleanFileName}</td>
+            </tr>
+            <tr>
+              <td class="required">Project Date</td>
+              <td >
+                <input type="date" id="projectDate" class="form-control">
+              </td>
+            </tr>
+            <tr>
+              <td class="required">End Date</td>
+              <td>
+                <input type="date" id="endDate" class="form-control">
+              </td>
+            </tr>
+            <tr><td>Remarks</td><td contenteditable="true"></td></tr>
+        </tbody>
+    </table>
+    <div id="saveButtonContainer" class="saveButton-container mt-3">
+        <button id="saveButton" class="btn btn-primary">Save</button>
+    </div>`;
+
+			// Insert the table into the HTML
+			$("#editableTablePRPO").html(tableHtml).show();
+
+			// $('#projectDate').on('change',() => {
+			//   let projectDate = $('#projectDate').val();
+			//   console.log(projectDate,addDays(projectDate,30));
+			//   if(projectDate != null){
+			//     $('#endDate').val(addDays(projectDate,30));
+			//     console.log('enddate.val=',$('#endDate').val());
+			//   }
+			// });
+			// // If there's a file ID, get the filename from Drive
+			// if (fileId && !currentFileName) {
+			//     google.script.run
+			//         .withSuccessHandler(function(result) {
+			//             if (result && result.fileName) {
+			//                 $('#uploadedFile').html(
+			//                     `<a href="https://drive.google.com/file/d/${fileId}/view" target="_blank" id="fileLink">${result.fileName}</a>`
+			//                 );
+			//             }
+			//         })
+			//         .getFileNameFromId(fileId);
+			// }
+
+			// Fetch Cost Center data from the spreadsheet
+			google.script.run.withSuccessHandler(populateCostCenterDropdown).getCostCenterOptions();
+
+			// Add event listener for the Save button
+			$("#saveButton").on("click", saveEditableDataPRPO);
+
+			// Fetch all vendor names upfront
+			let allVendors = [];
+			google.script.run
+				.withSuccessHandler(function (vendors) {
+					allVendors = vendors; // Store all vendor names
+				})
+				.searchVendors();
+
+			// Vendor Name Input Event
+			let previousValidQuery = ""; // Track the previous valid query
+			$("#vendorNamePRPO").on("input", function () {
+				const query = $(this).val().toLowerCase();
+				if (query.length > 0) {
+					// Filter vendors locally (no backend call)
+					let matchedVendors = allVendors.filter((vendor) => vendor.toLowerCase().startsWith(query));
+
+					// If no vendors match the current query, fall back to the previous valid query
+					if (matchedVendors.length === 0 && previousValidQuery) {
+						matchedVendors = allVendors.filter((vendor) => vendor.toLowerCase().startsWith(previousValidQuery));
+					} else if (matchedVendors.length > 0) {
+						// Update the previous valid query if the current query has matches
+						previousValidQuery = query;
+					}
+
+					updateVendorSuggestions(matchedVendors);
+				} else {
+					$("#vendorSuggestionsPRPO").hide();
+				}
+			});
+
+			// Handle clicks on suggestion items
+			$(document).on("click", "#vendorSuggestionsPRPO li", function () {
+				const selectedVendor = $(this).text();
+				$("#vendorNamePRPO").val(selectedVendor);
+				$("#vendorSuggestionsPRPO").hide();
+				populateGLInfo(selectedVendor);
+			});
+
+			// Function to update vendor suggestions
+			function updateVendorSuggestions(vendors) {
+				const $suggestionsList = $("#vendorSuggestionsPRPO");
+				$suggestionsList.empty();
+
+				if (vendors.length > 0) {
+					vendors.forEach((vendor) => {
+						$suggestionsList.append(`<li class="list-group-item">${vendor}</li>`);
+					});
+					$suggestionsList.show();
+				} else {
+					$suggestionsList.hide();
+				}
+			}
+
+			// Fetch GL Code and GL Description based on selected vendor
+			function populateGLInfo(vendorName) {
+				google.script.run
+					.withSuccessHandler(function (result) {
+						if (result.glCode) {
+							$("#glCode").text(result.glCode);
+						} else {
+							$("#glCode").text("");
+							showGLErrorMessage();
+						}
+					})
+					.getGLInfo(vendorName);
+			}
+
+			// Display an error if GL Info is missing
+			function showGLErrorMessage() {
+				Swal.fire({
+					icon: "error",
+					title: "Missing GL Information",
+					text: "The vendor you entered does not have GL Account yet. Please access this link to update the information or contact the budget team for assistance. You cannot upload a CE at this time.",
+					footer: '<a href="https://docs.google.com/forms/d/e/1FAIpQLSfHRIjr8qaoCV6bm8SzEo5ysPcp2e6to-10tt7Udk7uBRSfkA/viewform" target="_blank" rel="noopener noreferrer">Update Vendor Information</a>',
+					confirmButtonText: "OK",
+				}).then((result) => {
+					if (result.isConfirmed) {
+						// Redirect to Home Page
+						hideAllPages();
+						$("#homePage").show();
+					}
+				});
+			}
+
+			// Populate the Cost Center dropdown with options
+			function populateCostCenterDropdown(costCenters) {
+				const options = costCenters.map((option) => `<option value="${option}">${option}</option>`).join("");
+				$("#costCenterPRPO").append(options);
+			}
+		}
+
+		// Save data function
+		function saveEditableDataPRPO() {
+			const data = {};
+			let allFieldsFilled = true;
+
+			// Helper function to validate and collect field data
+			const validateField = (field, element, value) => {
+				if (!value && field !== "Remarks") {
+					// Remarks is optional
+					allFieldsFilled = false;
+					element.addClass("border-danger");
+					return false;
+				}
+				element.removeClass("border-danger");
+				return true;
+			};
+
+			// Collect data from table
+			$("#editableTablePRPO tbody tr").each(function () {
+				const field = $(this).find("td:first").text().trim();
+				let value;
+
+				// Handle different input types
+				if (field == "Project Date") {
+					const projectDate = $("#projectDate");
+					value = projectDate.val();
+					if (!value) {
+						allFieldsFilled = false;
+						projectDate.addClass("border-danger");
+					} else {
+						projectDate.removeClass("border-danger");
+					}
+					data[field] = value ? formatDate(value) : null;
+				}
+				if (field == "End Date") {
+					const endDate = $("#endDate");
+					value = endDate.val();
+					if (!value) {
+						allFieldsFilled = false;
+						endDate.addClass("border-danger");
+					} else {
+						endDate.removeClass("border-danger");
+					}
+					data[field] = value ? formatDate(value) : null;
+				}
+				if (field === "Vendor Name") {
+					const vendorInput = $("#vendorNamePRPO");
+					value = vendorInput.val().trim();
+					if (!value) {
+						allFieldsFilled = false;
+						vendorInput.addClass("border-danger");
+					} else {
+						vendorInput.removeClass("border-danger");
+					}
+					data[field] = value;
+				}
+				// Handle Cost Center dropdown
+				else if (field === "Cost Center") {
+					const costCenter = $("#costCenterPRPO").val();
+					if (!costCenter) {
+						allFieldsFilled = false;
+						$("#costCenterPRPO").addClass("border-danger");
+					} else {
+						$("#costCenterPRPO").removeClass("border-danger");
+					}
+					data[field] = costCenter;
+				}
+				// Handle Vat Ex/Net Amount
+				else if (field === "Vat Ex/Net Amount") {
+					const amountCell = $(this).find("td:last");
+					value = amountCell.text().trim().replace(/,/g, "");
+
+					if (!value || isNaN(value) || value <= 0) {
+						allFieldsFilled = false;
+						amountCell.addClass("border-danger");
+					} else {
+						amountCell.removeClass("border-danger");
+						value = Number(value).toLocaleString();
+					}
+					data[field] = value;
+				}
+				// Handle fixed fields (Time Stamp, Email Address, IO Number)
+				else if (field === "Time Stamp (Tool Generated)" || field === "Email Address" || field === "IO Number") {
+					value = $(this).find("td:last").text().trim();
+					data[field] = value;
+				}
+				// Handle GL Account (non-editable)
+				else if (field === "GL Account") {
+					value = $("#glCode").text().trim();
+					if (!value) {
+						allFieldsFilled = false;
+					}
+					data[field] = value;
+				}
+				// Handle all other editable fields
+				else if ($(this).find("td:last").attr("contenteditable") === "true") {
+					const cell = $(this).find("td:last");
+					value = cell.text().trim();
+					validateField(field, cell, value);
+					data[field] = value;
+				}
+			});
+
+			// Validate all required fields are filled
+			if (!allFieldsFilled) {
+				Swal.fire({
+					icon: "warning",
+					title: "Incomplete Fields",
+					text: "Please fill in all the required fields before saving.",
+					showConfirmButton: true,
+					confirmButtonText: "OK",
+				});
+				return;
+			}
+
+			if (data["End Date"] < data["Project Date"]) {
+				console.log("error dapat");
+				$("#endDate").addClass("border-danger");
+				$("#projectDate").addClass("border-danger");
+				Swal.fire({
+					icon: "warning",
+					title: "Incorrect Dates",
+					text: "Project Date must occur before End Date.",
+					showConfirmButton: true,
+					confirmButtonText: "OK",
+				});
+				return;
+			}
+
+			// Disable submit button and show loading state
+			const submitButton = $("#saveButton");
+			submitButton.prop("disabled", true);
+			submitButton.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
+
+			// Handle file data and save
+			if (uploadedRequestFileName && uploadedRequestFileId) {
+				// Remove file extension if it exists
+				const cleanFileName = uploadedRequestFileName.replace(/\.(pdf|xls|xlsx)$/i, "");
+				console.log(data, uploadedRequestFileName);
+				google.script.run
+					.withSuccessHandler(function (fileUrl) {
+						if (fileUrl) {
+							data["Uploaded PR/PO File"] = `=HYPERLINK("${fileUrl}", "${cleanFileName}")`;
+						} else {
+							data["Uploaded PR/PO File"] = cleanFileName;
+						}
+						console.log(fileUrl, data);
+						// Save data to spreadsheet
+						google.script.run
+							.withSuccessHandler(function (result) {
+								//clear global fields
+								uploadedRequestFileName = null;
+								uploadedRequestFileId = null;
+								console.log("Save result:", result);
+								handleSaveSuccessPRPO(data["IO Number"], data["Cost Center"]);
+								submitButton.prop("disabled", false);
+								submitButton.html("Save");
+							})
+							.withFailureHandler(function (error) {
+								handleSaveFailurePRPO(error);
+								submitButton.prop("disabled", false);
+								submitButton.html("Save");
+							})
+							.saveDataToSpreadsheetPRPO(data);
+					})
+					.withFailureHandler(function (error) {
+						handleSaveFailurePRPO(error);
+						submitButton.prop("disabled", false);
+						submitButton.html("Save");
+					})
+					.getUploadedFileUrlPRPO(uploadedRequestFileId);
+			} else {
+				// Save data without file
+				google.script.run
+					.withSuccessHandler(function (result) {
+						console.log("Save result:", result);
+						handleSaveSuccessPRPO(data["IO Number"], data["Cost Center"]);
+						submitButton.prop("disabled", false);
+						submitButton.html("Save");
+					})
+					.withFailureHandler(function (error) {
+						handleSaveFailurePRPO(error);
+						submitButton.prop("disabled", false);
+						submitButton.html("Save");
+					})
+					.saveDataToSpreadsheetPRPO(data);
+			}
+		}
+
+		function handleSaveSuccessPRPO(costIONo, costCenter) {
+			// Send the email immediately after saving
+			google.script.run
+				.withSuccessHandler(function () {
+					// Show success message after the email is sent
+					Swal.fire({
+						icon: "success",
+						title: "Data Saved",
+						text: "The PR/PO data you have uploaded is subject to review by our Budget Management Team. We will be in touch soon with an update!",
+						showConfirmButton: true,
+						confirmButtonText: "OK",
+					}).then(() => {
+						// Reset the PR/PO Page
+						$("#requestPRPOForm")[0].reset();
+						$("#filePreviewPRPO").hide();
+						$("#editableTablePRPO").hide();
+						$("#requestUploadStatus").html("");
+
+						// Re-enable the button and reset text
+						const submitButton = $("#saveButton");
+						submitButton.prop("disabled", false);
+						submitButton.html("Save");
+					});
+				})
+				.withFailureHandler(function (error) {
+					// Handle email sending failure
+					Swal.fire({
+						icon: "error",
+						title: "Email Error",
+						text: "The data was saved, but the email could not be sent. Error: " + error.message,
+					});
+				})
+				.sendNotificationCEEmailPRPO(costCenter);
+
+			// Send confirmation email to the logged-in user
+			const currentUserEmail = currentLoggedInUser;
+			google.script.run.sendPRPOConfirmationEmail(currentUserEmail, costIONo);
+		}
+
+		function handleSaveSuccessPRPO(costIONo, costCenter) {
+			Swal.fire({
+				icon: "success",
+				title: "Data Saved",
+				text: "The PR/PO data you have uploaded is subject to review by our Budget Management Team. We will be in touch soon with an update!",
+				showConfirmButton: true,
+				confirmButtonText: "OK",
+			}).then(() => {
+				// Reset the Cost Estimate Page
+				$("#requestPRPOForm")[0].reset();
+				$("#filePreviewPRPO").hide();
+				$("#editableTablePRPO").hide();
+				$("#requestUploadStatus").html("");
+
+				// Re-enable the button and reset text
+				const submitButton = $("#saveButton");
+				submitButton.prop("disabled", false);
+				submitButton.html("Save");
+
+				// Call the Google Apps Script function to send the email
+				google.script.run.sendNotificationCEEmailPRPO(costCenter);
+
+				const currentUserEmail = currentLoggedInUser;
+				google.script.run.sendPRPOConfirmationEmail(currentUserEmail, costIONo);
+			});
+		}
+
+		function handleSaveFailurePRPO(error) {
+			Swal.fire({
+				icon: "error",
+				title: "Error",
+				text: "Failed to save data: " + error.message,
+			}).then(() => {
+				// Re-enable the button and reset text
+				const submitButton = $("#saveButton");
+				submitButton.prop("disabled", false);
+				submitButton.html("Save");
+			});
+		}
+
+		//Bulk Invoice ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+		// Global variables to store the IO Number and File Name
+		let currentIONumber = "";
+
+		// Function to populate the table with data
+		function populateTableBulk(data) {
+			const tableBody = $("#bulkInvoiceDataTable");
+			tableBody.empty(); // Clear existing rows
+
+			// Set the currentFileName and currentIONumber from the pulled data
+			if (data["Uploaded CE File"]) {
+				currentFileName = data["Uploaded CE File"];
+				console.log("Current File Name Set:", currentFileName); // Debugging
+			}
+			if (data["IO Number"]) {
+				currentIONumber = data["IO Number"];
+				console.log("Current IO Number Set:", currentIONumber); // Debugging
+			}
+
+			// Function to format dates to MM/DD/YYYY
+			const formatDate = (date) => {
+				const dateObj = new Date(date);
+				return isNaN(dateObj.getTime()) ? date : dateObj.toLocaleDateString("en-US");
+			};
+
+			for (const [key, value] of Object.entries(data)) {
+				let formattedValue = value;
+
+				// Format specific date fields
+				if (key === "CE Start Date" || key === "CE End Date" || key === "Date of Issue") {
+					formattedValue = formatDate(value);
+				}
+
+				// Check if the key is 'Accrued?' to add a special class for highlighting
+				const highlightClass = key === "Accrued?" ? "highlight-row" : "";
+
+				tableBody.append(`
+            <tr class="${highlightClass}">
+                <td>${key}</td>
+                <td>${formattedValue}</td>
+            </tr>
+        `);
+			}
+
+			// Check if Invoice Status exists in the data and append it to the table
+			if (data["Invoice Status"]) {
+				tableBody.append(`
+            <tr>
+                <td>Invoice Status</td>
+                <td>${data["Invoice Status"]}</td>
+            </tr>
+        `);
+			}
+
+			$("#addInvoiceButtonBulk").show();
+		}
+
+		// Bulk Invoice tab click handler
+		$("#sidebarBulkInvoiceLink").on("click", function (e) {
+			e.preventDefault();
+			hideAllPages();
+			$("#bulkInvoicePage").show();
+
+			// Initialize the DataTable if it hasn't been initialized yet
+			if (!$.fn.DataTable.isDataTable("#bulkInvoiceDataTable")) {
+				$("#bulkInvoiceDataTable").DataTable({
+					responsive: true,
+					paging: false,
+					searching: false,
+					info: false,
+				});
+			}
+
+			// Clear any existing search results
+			$("#fileNameBulk").val("");
+			$("#bulkInvoiceDataTable").empty();
+			$("#addInvoiceButtonBulk").hide();
+		});
+
+		let bulkInvoiceTable = null;
+		let currentFileName = "";
+		let uploadedFiles = {};
+		let currentLoggedInUser = ""; // Assuming this is set during login
+
+		// Event listener for File Name search button
+		$("#searchFileNameButtonBulk").on("click", function () {
+			const fileName = $("#fileNameBulk").val().trim();
+			if (fileName) {
+				currentFileName = fileName;
+				searchFileNameBulk(fileName);
+			} else {
+				Swal.fire({
+					icon: "warning",
+					title: "Empty Input",
+					text: "Please enter a File Name to search.",
+				});
+			}
+		});
+
+		// Function to handle the hierarchical search
+		function handleHierarchicalSearch() {
+			const ceNumber = $("#ceNumber").val().trim();
+			const ioNumber = $("#ioNumberBulk").val().trim();
+			const vendorName = $("#vendorNameBulk").val().trim();
+
+			if (!ceNumber) {
+				Swal.fire({
+					icon: "warning",
+					title: "Empty Input",
+					text: "Please enter a CE Number to search.",
+				});
+				return;
+			}
+
+			Swal.fire({
+				title: "Searching...",
+				text: "Please wait while we fetch the data.",
+				allowOutsideClick: false,
+				didOpen: () => {
+					Swal.showLoading();
+				},
+			});
+
+			google.script.run
+				.withSuccessHandler(function (result) {
+					Swal.close();
+					try {
+						result = JSON.parse(result);
+
+						if (result.error) {
+							throw new Error(result.error);
+						}
+
+						if (result.found) {
+							populateTableBulk(result.data);
+							// Reset and disable IO Number and Vendor Name fields
+							$("#ioNumberBulk").val("").prop("disabled", true);
+							$("#searchIONumberButton").prop("disabled", true);
+							$("#vendorNameBulk").val("").prop("disabled", true);
+							$("#searchVendorNameButton").prop("disabled", true);
+						} else if (!result.isUnique) {
+							if (result.nextSearch === "IO Number") {
+								Swal.fire({
+									icon: "info",
+									title: "Multiple Results",
+									text: "Please search for IO Number to narrow down the results.",
+								});
+								// Reset and enable IO Number fields
+								$("#ioNumberBulk").val("").prop("disabled", false);
+								$("#searchIONumberButton").prop("disabled", false);
+								// Reset and disable Vendor Name fields
+								$("#vendorNameBulk").val("").prop("disabled", true);
+								$("#searchVendorNameButton").prop("disabled", true);
+							} else if (result.nextSearch === "Vendor Name") {
+								Swal.fire({
+									icon: "info",
+									title: "Multiple Results",
+									text: "Please search for Vendor Name to narrow down the results.",
+								});
+								// Reset and enable Vendor Name fields
+								$("#vendorNameBulk").val("").prop("disabled", false);
+								$("#searchVendorNameButton").prop("disabled", false);
+							}
+						} else {
+							Swal.fire({
+								title: "No Results",
+								text: "No data found for the given search criteria.",
+								icon: "info",
+							});
+						}
+					} catch (error) {
+						Swal.fire({
+							icon: "error",
+							title: "Error",
+							text: "An error occurred while processing the result: " + error.toString(),
+						});
+					}
+				})
+				.withFailureHandler(function (error) {
+					Swal.close();
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "An error occurred while searching: " + error.toString(),
+					});
+				})
+				.searchCENumber(ceNumber, ioNumber, vendorName);
+		}
+
+		// Add this line
+		$("#hierarchySearchButton").on("click", function () {
+			handleHierarchicalSearch();
+		});
+
+		// Event listener for IO Number search button
+		$("#searchIONumberButton").on("click", function () {
+			handleHierarchicalSearch();
+		});
+
+		// Event listener for Vendor Name search button
+		$("#searchVendorNameButton").on("click", function () {
+			handleHierarchicalSearch();
+		});
+
+		// Update the logic to only disable/enable the input boxes
+		$("#ceNumber").on("input", function () {
+			if (!$(this).val().trim()) {
+				// Reset and disable IO Number and Vendor Name fields when CE Number is cleared
+				$("#ioNumberBulk").val("").prop("disabled", true);
+				$("#vendorNameBulk").val("").prop("disabled", true);
+			} else {
+				// Enable IO Number field when CE Number is entered
+				$("#ioNumberBulk").prop("disabled", false);
+			}
+		});
+
+		$("#ioNumberBulk").on("input", function () {
+			if (!$(this).val().trim()) {
+				// Reset and disable Vendor Name field when IO Number is cleared
+				$("#vendorNameBulk").val("").prop("disabled", true);
+			} else {
+				// Enable Vendor Name field when IO Number is entered
+				$("#vendorNameBulk").prop("disabled", false);
+			}
+		});
+
+		// Function to handle direct IO Number search
+		function handleDirectIONumberSearch() {
+			const ioNumber = $("#ioNumberSearch").val().trim();
+
+			if (!ioNumber) {
+				Swal.fire({
+					icon: "warning",
+					title: "Empty Input",
+					text: "Please enter an IO Number to search.",
+				});
+				return;
+			}
+
+			Swal.fire({
+				title: "Searching...",
+				text: "Please wait while we fetch the data.",
+				allowOutsideClick: false,
+				didOpen: () => {
+					Swal.showLoading();
+				},
+			});
+
+			google.script.run
+				.withSuccessHandler(function (result) {
+					Swal.close();
+					try {
+						result = JSON.parse(result);
+
+						if (result.error) {
+							throw new Error(result.error);
+						}
+
+						if (result.found) {
+							// If IO Number is unique, populate the table
+							populateTableBulk(result.data);
+						} else if (result.nonUniqueRows && result.nonUniqueRows.length > 0) {
+							// If IO Number is not unique, show the modal with the list of rows
+							showNonUniqueIONumberList(result.nonUniqueRows);
+						} else {
+							Swal.fire({
+								title: "No Results",
+								text: "No data found for the given IO Number.",
+								icon: "info",
+							});
+						}
+					} catch (error) {
+						Swal.fire({
+							icon: "error",
+							title: "Error",
+							text: "An error occurred while processing the result: " + error.toString(),
+						});
+					}
+				})
+				.withFailureHandler(function (error) {
+					Swal.close();
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "An error occurred while searching: " + error.toString(),
+					});
+				})
+				.searchIONumberDirect(ioNumber);
+		}
+
+		// Function to show the list of non-unique IO Numbers in a modal
+		function showNonUniqueIONumberList(rows) {
+			const tableBody = $("#nonUniqueIONumberTable tbody");
+			tableBody.empty(); // Clear existing rows
+
+			// Populate the table with non-unique rows
+			rows.forEach((row) => {
+				tableBody.append(`
+            <tr>
+                <td>${row.ceNumber}</td>
+                <td>${row.programName}</td>
+                <td>${row.vendorName}</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="selectNonUniqueRow('${row.ioNumber}', '${row.vendorName}', '${row.programName}', '${row.ceNumber}')">Select</button>
+                </td>
+            </tr>
+        `);
+			});
+
+			// Show the modal
+			$("#nonUniqueIONumberModal").modal("show");
+		}
+
+		// Function to handle row selection from the non-unique list
+		window.selectNonUniqueRow = function (ioNumber, vendorName, programName, ceNumber) {
+			Swal.fire({
+				title: "Pulling Data...",
+				text: "Please wait while we fetch the data.",
+				allowOutsideClick: false,
+				didOpen: () => {
+					Swal.showLoading();
+				},
+			});
+
+			google.script.run
+				.withSuccessHandler(function (result) {
+					Swal.close();
+					try {
+						// Parse the result if it's a JSON string
+						if (typeof result === "string") {
+							result = JSON.parse(result);
+						}
+
+						// Ensure the result is a valid object
+						if (!result || typeof result !== "object" || Object.keys(result).length === 0) {
+							throw new Error("Invalid or empty data received from the server.");
+						}
+
+						// Populate the table with the selected row's data
+						populateTableBulk(result);
+						$("#nonUniqueIONumberModal").modal("hide"); // Hide the modal
+					} catch (error) {
+						Swal.fire({
+							icon: "error",
+							title: "Error",
+							text: "An error occurred while processing the result: " + error.toString(),
+						});
+					}
+				})
+				.withFailureHandler(function (error) {
+					Swal.close();
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "An error occurred while fetching the selected row: " + error.toString(),
+					});
+				})
+				.getRowDataByIONumberAndDetails(ioNumber, vendorName, programName, ceNumber);
+		};
+
+		// Event listener for direct IO Number search button
+		$("#searchIONumberButtonDirect").on("click", function () {
+			handleDirectIONumberSearch();
+		});
+
+		$("#addInvoiceButtonBulk").on("click", function () {
+			$("#bulkInvoiceModal").modal("show");
+			initializeBulkInvoiceTable(currentLoggedInUser); // Pass the logged-in user's email
+		});
+
+		$(document).on("input", ".invoice-amount", function (e) {
+			let value = e.target.value.replace(/,/g, ""); // Remove existing commas
+
+			// Check if the value contains a decimal point
+			const decimalIndex = value.indexOf(".");
+
+			if (decimalIndex !== -1) {
+				// Split the value into integer and decimal parts
+				const integerPart = value.substring(0, decimalIndex);
+				const decimalPart = value.substring(decimalIndex + 1);
+
+				// Add commas to the integer part
+				const formattedIntegerPart = Number(integerPart).toLocaleString("en-US");
+
+				// Combine the formatted integer part and the decimal part
+				value = `${formattedIntegerPart}.${decimalPart}`;
+			} else {
+				// If no decimal point, format the entire value with commas
+				value = Number(value).toLocaleString("en-US");
+			}
+
+			// Update the input field with the formatted value
+			e.target.value = value;
+		});
+
+		// Function to initialize autocomplete with fallback to previous valid query
+		function initializeAutocomplete(inputField) {
+			let allVendors = []; // Store all vendor names
+			let previousValidQuery = ""; // Store the previous valid query
+
+			// Fetch all vendor names from the backend once
+			google.script.run
+				.withSuccessHandler(function (vendors) {
+					allVendors = vendors; // Store all vendor names
+				})
+				.withFailureHandler(function (error) {
+					console.error("Error fetching vendors:", error);
+				})
+				.searchVendors(); // Call the backend to fetch all vendors
+
+			// Function to update the autocomplete dropdown
+			function updateAutocompleteDropdown(query) {
+				const dropdown = inputField.closest(".autocomplete").find(".autocomplete-items");
+				dropdown.empty(); // Clear the dropdown
+
+				if (query.length > 0 && allVendors.length > 0) {
+					// Filter vendors that start with the query (case-insensitive)
+					let matchedVendors = allVendors.filter((vendor) => vendor.toLowerCase().startsWith(query.toLowerCase()));
+
+					// If no vendors match the current query, fall back to the previous valid query
+					if (matchedVendors.length === 0 && previousValidQuery) {
+						matchedVendors = allVendors.filter((vendor) => vendor.toLowerCase().startsWith(previousValidQuery.toLowerCase()));
+					} else if (matchedVendors.length > 0) {
+						// Update the previous valid query if the current query has matches
+						previousValidQuery = query;
+					}
+
+					if (matchedVendors.length > 0) {
+						// Show the dropdown with matched vendors
+						matchedVendors.forEach((vendor) => {
+							dropdown.append(`<div>${vendor}</div>`);
+						});
+						dropdown.show();
+					} else {
+						dropdown.hide(); // Hide the dropdown if no matches
+					}
+				} else {
+					dropdown.hide(); // Hide the dropdown if the query is empty
+				}
+			}
+
+			// Attach input event listener to the input field
+			inputField.on("input", function () {
+				const query = $(this).val().trim(); // Get the query
+				updateAutocompleteDropdown(query);
+			});
+
+			// Handle click on autocomplete items (scoped to the current row)
+			inputField.closest(".autocomplete").on("click", ".autocomplete-items div", function () {
+				const selectedVendor = $(this).text();
+				inputField.val(selectedVendor);
+				$(this).closest(".autocomplete-items").empty().hide();
+			});
+
+			// Hide the dropdown when clicking outside
+			$(document).on("click", function (event) {
+				if (!$(event.target).closest(".autocomplete").length) {
+					inputField.closest(".autocomplete").find(".autocomplete-items").hide();
+				}
+			});
+		}
+
+		// Initialize the bulk invoice table
+		function initializeBulkInvoiceTable(currentLoggedInUser) {
+			if (!$.fn.DataTable.isDataTable("#bulkInvoiceTable")) {
+				bulkInvoiceTable = $("#bulkInvoiceTable").DataTable({
+					paging: false,
+					searching: false,
+					ordering: false,
+					info: false,
+					columns: [
+						{ title: "Invoice Vendor Name *", data: "invoiceVendorName" },
+						{ title: "Invoice Number *", data: "invoiceNumber" },
+						{ title: "Invoice Amount (VAT EX) *", data: "invoiceAmount" },
+						{ title: "Accrual Reference Doc", data: "accrualRefDoc" },
+						{ title: "Invoice Date *", data: "invoiceDate" },
+						{ title: "Invoice Due Date", data: "invoiceDueDate" },
+						{ title: "Uploaded Invoice File *", data: "uploadedFile" }, // Only one column for uploaded file
+					],
+					createdRow: function (row, data, dataIndex) {
+						// Populate the row with input fields
+						$(row).find("td").eq(0).html(`
+                    <div class="autocomplete">
+                        <input type="text" class="form-control invoice-vendor-name" required>
+                        <div class="autocomplete-items"></div>
+                    </div>
+                `);
+						$(row).find("td").eq(1).html('<input type="text" class="form-control" required>');
+						$(row).find("td").eq(2).html('<input type="text" class="form-control invoice-amount" required>');
+						$(row).find("td").eq(3).html('<input type="text" class="form-control">'); // Accrual Reference Doc
+						$(row).find("td").eq(4).html('<input type="date" class="form-control invoice-date" required>');
+						$(row).find("td").eq(5).html('<input type="date" class="form-control invoice-due-date">');
+						$(row).find("td").eq(6).html(` <!-- Only one column for uploaded file -->
+                    <div class="file-upload-wrapper">
+                        <input type="file" class="form-control file-upload-input" accept=".pdf,.xls,.xlsx" required>
+                        <span class="file-name"></span>
+                        <div class="upload-spinner" style="display: none;">
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...
+                        </div>
+                    </div>
+                `);
+
+						// $(row).find('.invoice-date').datepicker();
+						// $(row).find('.invoice-due-date').datepicker();
+						// Initialize autocomplete for the vendor name input
+						initializeAutocomplete($(row).find(".invoice-vendor-name"));
+
+						//Add 30 days default for invoice due date
+						$(row)
+							.find(".invoice-date")
+							.on("change", function () {
+								var invoiceDateValue = $(this).val();
+								var invoiceDueDateInput = $(row).find(".invoice-due-date");
+								var invoiceDueDateValue = $(invoiceDueDateInput).val();
+								console.log(invoiceDueDateInput[0]);
+
+								if (invoiceDueDateValue || !invoiceDateValue) {
+									//invoice due date has value do not change
+									return;
+								}
+								console.log(formatDateInputVal(addDays(invoiceDateValue, 30)));
+								$(invoiceDueDateInput).val(formatDateInputVal(addDays(invoiceDateValue, 30)));
+							});
+
+						// Handle file upload for this row
+						$(row)
+							.find(".file-upload-input")
+							.on("change", function () {
+								const file = this.files[0];
+								if (file) {
+									const spinner = $(row).find(".upload-spinner");
+									spinner.show(); // Show spinner when upload starts
+
+									const reader = new FileReader();
+									reader.onload = function (e) {
+										const fileData = e.target.result.split(",")[1];
+										var fileName = file.name;
+
+										// Upload the file to Google Drive
+										google.script.run
+											.withSuccessHandler(function (data) {
+												spinner.hide(); // Hide spinner on success
+												if (data.error) {
+													Swal.fire({
+														icon: "error",
+														title: "Upload Failed",
+														text: data.error,
+													});
+												} else {
+													fileName = data.fileName;
+													uploadedFiles[dataIndex] = data; // Store file data
+													$(row).find(".file-name").text(fileName);
+												}
+											})
+											.withFailureHandler(function (error) {
+												spinner.hide(); // Hide spinner on failure
+												Swal.fire({
+													icon: "error",
+													title: "Upload Failed",
+													text: error.message,
+												});
+											})
+											.newSaveUploadedFile(fileData, fileName);
+									};
+									reader.readAsDataURL(file);
+								}
+							});
+					},
+				});
+
+				// Add 1 initial row
+				addNewRow(currentLoggedInUser);
+			}
+		}
+
+		// Function to add a new row
+		function addNewRow(currentLoggedInUser) {
+			if (bulkInvoiceTable.rows().count() < 20) {
+				bulkInvoiceTable.row
+					.add({
+						invoiceVendorName: "", // New field for vendor name
+						invoiceNumber: "",
+						invoiceAmount: "",
+						invoiceTimestamp: new Date().toLocaleDateString("en-US"),
+						accrualRefDoc: "",
+						invoiceDate: "",
+						invoiceDueDate: "",
+						uploadedFile: "",
+					})
+					.draw();
+			} else {
+				Swal.fire({
+					icon: "warning",
+					title: "Row Limit Reached",
+					text: "You can only add up to 20 rows.",
+				});
+			}
+		}
+
+		// Event listener for Add Row button
+		$("#addRowButton").on("click", function () {
+			addNewRow(currentLoggedInUser);
+		});
+
+		// Event listener for the "Upload Excel File" button
+		$("#uploadExcelButton").on("click", function () {
+			// Create a file input element
+			const fileInput = document.createElement("input");
+			fileInput.type = "file";
+			fileInput.accept = ".xls, .xlsx";
+
+			// Trigger file selection
+			fileInput.click();
+
+			// Handle file selection
+			fileInput.addEventListener("change", function (event) {
+				const file = event.target.files[0];
+				if (file) {
+					// Read the Excel file
+					readExcelFile(file);
+				}
+			});
+		});
+
+		// Function to read the Excel file
+		function readExcelFile(file) {
+			const reader = new FileReader();
+			reader.onload = function (e) {
+				const data = new Uint8Array(e.target.result);
+				const workbook = XLSX.read(data, { type: "array" });
+
+				// Get the first sheet
+				const sheetName = workbook.SheetNames[0];
+				const sheet = workbook.Sheets[sheetName];
+
+				// Convert the sheet to JSON
+				const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+				// Log the raw data from the Excel file
+				console.log("Raw Excel Data:", jsonData);
+
+				// Find the row containing the headers
+				let headerRowIndex = -1;
+				for (let i = 0; i < jsonData.length; i++) {
+					const row = jsonData[i];
+					if (row.includes("Invoice Vendor Name") || row.includes("Invoice Number") || row.includes("Invoice Amount (VAT EX)") || row.includes("Invoice Date")) {
+						headerRowIndex = i;
+						break;
+					}
+				}
+
+				if (headerRowIndex === -1) {
+					Swal.fire({
+						icon: "error",
+						title: "Invalid File",
+						text: "The uploaded file does not contain the required columns.",
+					});
+					return;
+				}
+
+				// Extract the headers
+				const headers = jsonData[headerRowIndex];
+				console.log("Headers in Excel File:", headers);
+
+				// Function to find column index with flexible matching
+				const findColumnIndex = (headerName) => {
+					return headers.findIndex((header) => header.trim().toLowerCase() === headerName.trim().toLowerCase());
+				};
+
+				const vendorNameIndex = findColumnIndex("Invoice Vendor Name");
+				const invoiceNumberIndex = findColumnIndex("Invoice Number");
+				const invoiceAmountIndex = findColumnIndex("Invoice Amount (VAT EX)");
+				const accrualRefIndex = findColumnIndex("Accrual Reference Doc");
+				const invoiceDateIndex = findColumnIndex("Invoice Date");
+				const invoiceDueDateIndex = findColumnIndex("Invoice Due Date");
+
+				console.log("Column Indices:", {
+					vendorNameIndex,
+					invoiceNumberIndex,
+					invoiceAmountIndex,
+					accrualRefIndex,
+					invoiceDateIndex,
+					invoiceDueDateIndex,
+				});
+
+				if (vendorNameIndex === -1 || invoiceNumberIndex === -1 || invoiceAmountIndex === -1 || invoiceDateIndex === -1) {
+					Swal.fire({
+						icon: "error",
+						title: "Invalid File",
+						text: "The uploaded file does not contain the required columns.",
+					});
+					return;
+				}
+
+				// Find empty rows in the modal table
+				const emptyRows = [];
+				bulkInvoiceTable.rows().every(function (index) {
+					const rowNode = this.node();
+					const vendorName = $(rowNode).find("td:eq(0) input").val();
+					const invoiceNumber = $(rowNode).find("td:eq(1) input").val();
+					const invoiceAmount = $(rowNode).find("td:eq(2) input").val();
+					const uploadedFile = uploadedFiles[index] ? uploadedFiles[index].fileUrl : "";
+
+					// Check if the row is empty
+					if (!vendorName && !invoiceNumber && !invoiceAmount && !uploadedFile) {
+						emptyRows.push(index);
+					}
+				});
+
+				// Process the rows from the Excel file
+				let excelRowIndex = headerRowIndex + 1;
+				let emptyRowIndex = 0;
+
+				while (excelRowIndex < jsonData.length && emptyRowIndex < emptyRows.length) {
+					const row = jsonData[excelRowIndex];
+					const vendorName = row[vendorNameIndex];
+					const invoiceNumber = row[invoiceNumberIndex];
+					const invoiceAmount = row[invoiceAmountIndex];
+					const accrualRef = accrualRefIndex !== -1 ? row[accrualRefIndex] : "";
+					const invoiceDate = formatDateInputVal(row[invoiceDateIndex]);
+					const invoiceDueDate = row[invoiceDueDateIndex] ? formatDateInputVal(row[invoiceDueDateIndex]) : addDays(invoiceDate, 30);
+
+					if (vendorName && invoiceNumber && invoiceAmount) {
+						// Reuse an empty row
+						const rowIndex = emptyRows[emptyRowIndex];
+						const rowNode = bulkInvoiceTable.row(rowIndex).node();
+
+						// Populate the input fields in the row
+						$(rowNode).find("td:eq(0) input").val(vendorName);
+						$(rowNode).find("td:eq(1) input").val(invoiceNumber);
+						$(rowNode).find("td:eq(2) input").val(invoiceAmount);
+						$(rowNode)
+							.find("td:eq(3) input")
+							.val(accrualRef || "");
+						$(rowNode).find("td:eq(4) input").val(invoiceDate);
+						$(rowNode).find("td:eq(5) input").val(invoiceDueDate);
+						$(rowNode).find("td:eq(6) input").val("");
+						// Move to the next empty row
+						emptyRowIndex++;
+					}
+
+					// Move to the next Excel row
+					excelRowIndex++;
+				}
+
+				// If there are still rows in the Excel file, add new rows
+				while (excelRowIndex < jsonData.length) {
+					const row = jsonData[excelRowIndex];
+					const vendorName = row[vendorNameIndex];
+					const invoiceNumber = row[invoiceNumberIndex];
+					const invoiceAmount = row[invoiceAmountIndex];
+					const accrualRef = accrualRefIndex !== -1 ? row[accrualRefIndex] : "";
+					const invoiceDate = formatDateInputVal(row[invoiceDateIndex]);
+					const invoiceDueDate = row[invoiceDueDateIndex] ? formatDateInputVal(row[invoiceDueDateIndex]) : addDays(invoiceDate, 30);
+
+					if (vendorName && invoiceNumber && invoiceAmount && invoiceDate) {
+						// Add a new row to the modal table
+						addNewRowFromExcel(vendorName, invoiceNumber, invoiceAmount, accrualRef, invoiceDate, invoiceDueDate);
+					}
+
+					// Move to the next Excel row
+					excelRowIndex++;
+				}
+
+				Swal.fire({
+					icon: "success",
+					title: "File Uploaded",
+					text: "The Excel file has been processed and the data has been added to the table.",
+				});
+			};
+			reader.readAsArrayBuffer(file);
+		}
+
+		// Function to add a new row from Excel data
+		function addNewRowFromExcel(vendorName, invoiceNumber, invoiceAmount, accrualRef, invoiceDate, invoiceDueDate) {
+			if (bulkInvoiceTable.rows().count() < 20) {
+				// Add a new row to the DataTable
+				const newRow = bulkInvoiceTable.row
+					.add({
+						invoiceVendorName: vendorName,
+						invoiceNumber: invoiceNumber,
+						invoiceAmount: invoiceAmount,
+						invoiceTimestamp: new Date().toLocaleDateString("en-US"), // This will be saved in the database but not shown in the modal
+						accrualRefDoc: accrualRef, // Only fill with the value from the Excel file
+						invoiceDate: invoiceDate,
+						invoiceDueDate: invoiceDueDate,
+						uploadedFile: "",
+					})
+					.draw();
+
+				// Get the newly added row node
+				const rowNode = newRow.node();
+
+				// Populate the input fields in the row
+				$(rowNode).find("td").eq(0).html(`
+            <div class="autocomplete">
+                <input type="text" class="form-control invoice-vendor-name" value="${vendorName}" required>
+                <div class="autocomplete-items"></div>
+            </div>
+        `);
+				$(rowNode).find("td").eq(1).html(`<input type="text" class="form-control" value="${invoiceNumber}" required> `);
+				$(rowNode).find("td").eq(2).html(`<input type="text" class="form-control invoice-amount" value="${invoiceAmount}" required>`);
+				$(rowNode)
+					.find("td")
+					.eq(3)
+					.html(`<input type="text" class="form-control" value="${accrualRef || ""}">`); // Accrual Reference Doc
+				$(rowNode).find("td").eq(4).html(`<input type="date" class="form-control invoice-date" value="${invoiceDate}" required>`);
+				$(rowNode).find("td").eq(5).html(`<input type="date" class="form-control invoice-due-date" value="${invoiceDueDate}" required>`);
+				$(rowNode).find("td").eq(6).html(` <!-- Only one column for uploaded file -->
+            <div class="file-upload-wrapper">
+                <input type="file" class="form-control file-upload-input" accept=".pdf,.xls,.xlsx" required>
+                <span class="file-name"></span>
+                <div class="upload-spinner" style="display: none;">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...
+                </div>
+            </div>
+        `);
+
+				// Reinitialize autocomplete for the new row
+				initializeAutocomplete($(rowNode).find(".invoice-vendor-name"));
+
+				//Add 30 days default for invoice due date
+				$(rowNode)
+					.find(".invoice-date")
+					.on("change", function () {
+						var invoiceDateValue = $(this).val();
+						var invoiceDueDateInput = $(row).find(".invoice-due-date");
+						var invoiceDueDateValue = $(invoiceDueDateInput).val();
+						console.log(invoiceDueDateInput[0]);
+
+						if (invoiceDueDateValue || !invoiceDateValue) {
+							//invoice due date has value do not change
+							return;
+						}
+						console.log(formatDateInputVal(addDays(invoiceDateValue, 30)));
+						$(invoiceDueDateInput).val(formatDateInputVal(addDays(invoiceDateValue, 30)));
+					});
+
+				// Handle file upload for the new row
+				$(rowNode)
+					.find(".file-upload-input")
+					.on("change", function () {
+						const file = this.files[0];
+						if (file) {
+							const spinner = $(this).closest(".file-upload-wrapper").find(".upload-spinner");
+							const fileNameDisplay = $(this).closest(".file-upload-wrapper").find(".file-name");
+							spinner.show(); // Show spinner when upload starts
+
+							const reader = new FileReader();
+							reader.onload = function (e) {
+								const fileData = e.target.result.split(",")[1];
+								const fileName = file.name;
+
+								// Upload the file to Google Drive
+								google.script.run
+									.withSuccessHandler(function (data) {
+										spinner.hide(); // Hide spinner on success
+										if (data.error) {
+											Swal.fire({
+												icon: "error",
+												title: "Upload Failed",
+												text: data.error,
+											});
+										} else {
+											// Store file data and display the file name
+											fileNameDisplay.text(fileName);
+											uploadedFiles[newRow.index()] = data; // Store file data for this row
+										}
+									})
+									.withFailureHandler(function (error) {
+										spinner.hide(); // Hide spinner on failure
+										Swal.fire({
+											icon: "error",
+											title: "Upload Failed",
+											text: error.message,
+										});
+									})
+									.newSaveUploadedFile(fileData, fileName);
+							};
+							reader.readAsDataURL(file);
+						}
+					});
+			} else {
+				Swal.fire({
+					icon: "warning",
+					title: "Row Limit Reached",
+					text: "You can only add up to 20 rows.",
+				});
+			}
+		}
+
+		// Event listener for Save button
+		$("#saveBulkInvoiceButton").on("click", function () {
+			const submitButton = $(this);
+			submitButton.prop("disabled", true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
+
+			const data = [];
+			let incompleteRows = [];
+			let invalidVendorRows = [];
+
+			// Collect data and validate required fields
+			bulkInvoiceTable.rows().every(function (index) {
+				const rowNode = this.node();
+				const vendorName = $(rowNode).find("td:eq(0) input").val();
+				const invoiceNumber = $(rowNode).find("td:eq(1) input").val();
+				const invoiceAmount = $(rowNode).find("td:eq(2) input").val();
+				const accrualRef = $(rowNode).find("td:eq(3) input").val();
+				const invoiceDate = $(rowNode).find("td:eq(4) input").val();
+				const invoiceDueDate = $(rowNode).find("td:eq(5) input").val() ? formatDate($(rowNode).find("td:eq(5) input").val()) : addDays($(rowNode).find("td:eq(4) input").val(), 30);
+				const uploadedFile = uploadedFiles[index] ? uploadedFiles[index].fileUrl : "";
+
+				console.log(invoiceDate, " ++++", invoiceDueDate);
+				// Check if all required fields are filled
+				if (!vendorName || !invoiceNumber || !invoiceAmount || !uploadedFile || !invoiceDate) {
+					incompleteRows.push(index + 1);
+				} else {
+					// Add the row data to the `data` array
+					data.push({
+						invoiceEmail: currentLoggedInUser,
+						invoiceVendorName: vendorName,
+						invoiceNumber: invoiceNumber,
+						invoiceAmount: invoiceAmount,
+						invoiceTimestamp: new Date().toLocaleDateString("en-US"),
+						accrualRefDoc: accrualRef || "",
+						invoiceDate: new Date(formatDate(invoiceDate)).toLocaleDateString("en-US"),
+						invoiceDueDate: new Date(formatDate(invoiceDueDate)).toLocaleDateString("en-US"),
+						uploadedFile: uploadedFile,
+					});
+				}
+			});
+
+			console.log("data", data);
+			// Validate vendor names and save data
+			if (incompleteRows.length === 0) {
+				let vendorValidationPromises = data.map((row, index) => {
+					return new Promise((resolve) => {
+						google.script.run
+							.withSuccessHandler(function (isValid) {
+								if (!isValid) {
+									invalidVendorRows.push(index + 1);
+								}
+								resolve();
+							})
+							.withFailureHandler(function (error) {
+								console.error("Error validating vendor:", error);
+								resolve();
+							})
+							.checkVendorName(row.invoiceVendorName);
+					});
+				});
+
+				Promise.all(vendorValidationPromises).then(() => {
+					if (invalidVendorRows.length > 0) {
+						let errorMessage = `The following rows have invalid vendor names (not found in Vendor DB): <br>
+                             - Rows: ${invalidVendorRows.join(", ")}`;
+
+						Swal.fire({
+							icon: "error",
+							title: "Validation Error",
+							html: errorMessage,
+						});
+
+						submitButton.prop("disabled", false).html("Save");
+						return;
+					}
+
+					if (data.length > 0) {
+						// Pass the currentFileName and currentIONumber to the backend
+						console.log("Saving with File Name:", currentFileName, "and IO Number:", currentIONumber); // Debugging
+
+						// When saving bulk invoice data
+						const fileName = currentFileName.trim(); // Trim whitespace
+						const ioNumber = currentIONumber.trim(); // Trim whitespace
+
+						// Get the Cost Center from the table
+						const costCenter = $("#bulkInvoiceDataTable").find('td:contains("Cost Center")').next().text().trim();
+						console.log("Retrieved Cost Center:", costCenter); // Log the Cost Center
+
+						google.script.run
+							.withSuccessHandler(function () {
+								// Send email notification immediately after saving
+								google.script.run
+									.withSuccessHandler(function () {
+										// Show success message after the email is sent
+										Swal.fire({
+											icon: "success",
+											title: "Success",
+											text: "Invoice data saved successfully!",
+										}).then(() => {
+											resetModalForm();
+											resetBulkInvoicePage();
+											submitButton.prop("disabled", false).html("Save");
+										});
+									})
+									.withFailureHandler(function (error) {
+										// Handle email sending failure
+										Swal.fire({
+											icon: "error",
+											title: "Email Error",
+											text: "The data was saved, but the email could not be sent. Error: " + error.message,
+										});
+									})
+									.sendCENotificationEmail(fileName, currentLoggedInUser, costCenter);
+							})
+							.withFailureHandler(function (error) {
+								Swal.fire({
+									icon: "error",
+									title: "Error",
+									text: "Failed to save bulk invoice data: " + error.message,
+								});
+								submitButton.prop("disabled", false).html("Save");
+							})
+							.saveBulkInvoiceData(fileName, currentIONumber, data); // Pass the file name and IO Number
+					} else {
+						Swal.fire({
+							icon: "warning",
+							title: "No Data",
+							text: "Please fill in at least one row with valid data.",
+						});
+						submitButton.prop("disabled", false).html("Save");
+					}
+				});
+			} else {
+				let errorMessage = `The following rows have incomplete required fields: <br>
+                         - Rows: ${incompleteRows.join(", ")}`;
+				addRequiredIndicator("#bulkInvoiceTable");
+				Swal.fire({
+					icon: "error",
+					title: "Validation Error",
+					html: errorMessage,
+				});
+
+				submitButton.prop("disabled", false).html("Save");
+			}
+		});
+
+		//add red border around required input field if no input is found.
+		function addRequiredIndicator(targetTable) {
+			var requiredFields = $(`${targetTable} tbody input[required], ${targetTable} tbody select[required]`);
+			requiredFields.each(function (field) {
+				const $this = $(this);
+				let value = $this.val();
+				if (value === null || value.trim() === "") {
+					$this.removeClass("inputerror");
+					$this.addClass("inputerror");
+				}
+			});
+			requiredFields.on("input change blur", function () {
+				const $this = $(this);
+				let value = $this.val();
+				console.log(value != null, "||", value.trim() != "", "==>", value != null || value.trim() != "");
+				if (value.trim() != "") {
+					console.log("remove inputerror class");
+					$this.removeClass("inputerror");
+				} else {
+					console.log("add inputerror class");
+					$this.addClass("inputerror");
+				}
+			});
+		}
+
+		// Function to reset everything in the Bulk Invoice page
+		function resetBulkInvoicePage() {
+			// Clear the DataTable
+			if (bulkInvoiceTable) {
+				bulkInvoiceTable.clear().draw();
+			}
+
+			// Clear uploaded files
+			uploadedFiles = {};
+
+			// Clear the file name input field
+			$("#fileNameBulk").val("");
+			$("#ceNumber").val("");
+			$("#ioNumberBulk").val("");
+			$("#vendorNameBulk").val("");
+			$("#ioNumberSearch").val("");
+
+			// Clear the table body in the main page
+			$("#bulkInvoiceDataTable").empty();
+
+			// Hide the "Add Invoice" button
+			$("#addInvoiceButtonBulk").hide();
+
+			// Reset the current file name
+			currentFileName = "";
+
+			// Add 1 initial row to the bulk invoice table (if needed)
+			if (bulkInvoiceTable) {
+				addNewRow(currentLoggedInUser);
+			}
+		}
+
+		function resetModalForm() {
+			// Clear the DataTable
+			if (bulkInvoiceTable) {
+				bulkInvoiceTable.clear().draw();
+			}
+
+			// Clear uploaded files
+			uploadedFiles = {};
+
+			// Add 1 initial row to the modal table
+			if (bulkInvoiceTable) {
+				addNewRow(currentLoggedInUser);
+			}
+
+			// Hide the modal
+			$("#bulkInvoiceModal").modal("hide");
+		}
+	});
+</script>
