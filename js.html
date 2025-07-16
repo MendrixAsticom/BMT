@@ -1294,7 +1294,7 @@
 			);
 
 			$("#filePreviewPRPO").show();
-			$("#pdfPreviewPRPO").attr("src", "https://drive.google.com/file/d/" + result.fileId + "/preview");
+			$("#pdfPreviewPRPO").attr("src", `https://drive.google.com/file/d/${result.fileId}/preview`);
 
 			if (typeof currentLoggedInUser === "undefined") {
 				console.error("currentLoggedInUser is not defined");
