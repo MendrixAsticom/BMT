@@ -2,6 +2,7 @@
 	//Update this (remove line 1289)
 	let currentLoggedInUser = "";
 	let uploadedFileName = "";
+	let uploadedFileId = "";
 	let lastVisitedPage = "homePage"; // Default to home page
 
 	// Add this variable at the top of your js.html
@@ -1072,7 +1073,7 @@
 						}
 						saveSequentially(allDataToSave);
 					})
-					.getUploadedFileUrl(uploadedFileName);
+					.getUploadedFileUrl(uploadedFileId);
 			} else {
 				saveSequentially(allDataToSave);
 			}

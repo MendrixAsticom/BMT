@@ -239,19 +239,14 @@ function getIOBalance(ioNumber) {
 }
 
 //Get the Link of the File
-function getUploadedFileUrl(fileName) {
+function getUploadedFileUrl(fileId) {
 	try {
 		const folderId = CE_FOLDER_ID; //Update CE Folder
-		const folder = DriveApp.getFolderById(folderId);
-		const files = folder.getFilesByName(fileName);
+		const storageFolder = DriveApp.getFolderById(folderId);
+		const fileToMove = DriveApp.getFileById(fileId).moveTo(storageFolder);
+		const fileUrl = fileToMove.getUrl();
 
-		if (files.hasNext()) {
-			const file = files.next();
-			// Remove .pdf extension when returning the URL
-			// const cleanFileName = uploadedFileName.replace(/\.(pdf|xls|xlsx)$/i, '');
-			file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-			return file.getUrl();
-		}
+		return fileUrl;
 	} catch (e) {
 		Logger.log("Error fetching file URL: " + e.toString());
 	}
