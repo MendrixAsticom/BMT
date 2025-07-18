@@ -879,7 +879,7 @@ function saveBulkInvoiceData(fileName, ioNumber, data) {
 		const rowIONumber = values[i][ioNumberColumnIndex];
 
 		// Log the values in the spreadsheet for debugging
-		console.log(`Row ${i + 1}: File Name: "${rowFileName}", IO Number: "${rowIONumber}"`);
+		// console.log(`Row ${i + 1}: File Name: "${rowFileName}", IO Number: "${rowIONumber}"`);
 
 		// Ensure rowFileName and rowIONumber are treated as strings
 		const rowFileNameStr = String(rowFileName || "")
@@ -1173,7 +1173,7 @@ function getRowDataByIONumberAndDetails(ioNumber, vendorName, programName, ceNum
 }
 
 // Automated Email for New Invoices added
-function sendCENotificationEmail(fileName, userEmail, costCenter) {
+function sendNotificationCEInvoiceEmail(fileName, userEmail, costCenter, ceNumber) {
 	const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Auto Email");
 	if (!sheet) {
 		Logger.log("Email sheet not found.");
@@ -1226,6 +1226,22 @@ function sendCENotificationEmail(fileName, userEmail, costCenter) {
 		subject: subject,
 		htmlBody: body,
 	});
+
+	// Send notification to the user who saved
+	const userSubject = "Invoice Saved Successfully";
+	const userBody = `
+      <p>Dear User,</p>
+      <p>Your invoice has been successfully saved for the CE: <strong>${ceNumber}</strong> in the tool database.</p>
+      <p>To review your entry, please click the link below:</p>
+      <p>
+          <a href="https://docs.google.com/spreadsheets/d/1xgROcPRmkI6_dLfZmadbCI0Yv_0s_D7S23PIdNnkA40/edit?usp=sharing">
+              View Tool Database
+          </a>
+      </p>
+      <p>Best regards,<br>Your Budget Tool Team</p>
+  `;
+
+	sendEmail([userEmail], userSubject, userBody); // Send to the current user
 }
 
 // Helper function to send emails

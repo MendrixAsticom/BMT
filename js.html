@@ -1790,6 +1790,7 @@
 
 		// Global variables to store the IO Number and File Name
 		let currentIONumber = "";
+		let currentCENumber = "";
 
 		// Function to populate the table with data
 		function populateTableBulk(data) {
@@ -1922,6 +1923,7 @@
 
 						if (result.found) {
 							populateTableBulk(result.data);
+							currentCENumber = ceNumber;
 							// Reset and disable IO Number and Vendor Name fields
 							$("#ioNumberBulk").val("").prop("disabled", true);
 							$("#searchIONumberButton").prop("disabled", true);
@@ -1945,6 +1947,7 @@
 									icon: "info",
 									title: "Multiple Results",
 									text: "Please search for Vendor Name to narrow down the results.",
+									ceNumber,
 								});
 								// Reset and enable Vendor Name fields
 								$("#vendorNameBulk").val("").prop("disabled", false);
@@ -2768,9 +2771,12 @@
 						google.script.run
 							.withSuccessHandler(function () {
 								// Send email notification immediately after saving
+								console.log("inside saveBulkIvoiceData");
 								google.script.run
 									.withSuccessHandler(function () {
 										// Show success message after the email is sent
+										console.log("inside sendNotifEmail");
+
 										Swal.fire({
 											icon: "success",
 											title: "Success",
@@ -2789,7 +2795,7 @@
 											text: "The data was saved, but the email could not be sent. Error: " + error.message,
 										});
 									})
-									.sendCENotificationEmail(fileName, currentLoggedInUser, costCenter);
+									.sendNotificationCEInvoiceEmail(fileName, currentLoggedInUser, costCenter, currentCENumber);
 							})
 							.withFailureHandler(function (error) {
 								Swal.fire({

@@ -1,6 +1,5 @@
 function testFunction() {
 	Logger.log("test start");
-	var fileId = "1ujyr7KQRSl57Hx4hfql48ciblq533DIx";
-	Logger.log(getUploadedFileUrlPRPO(fileId));
+	sendNotificationCEInvoiceEmail('example.txt','mendrix.manlangit@gsupport.com.ph',);
 	Logger.log("test end");
 }
