@@ -770,7 +770,7 @@ function searchCENumber(ceNumber, ioNumber = null, vendorName = null) {
 			return JSON.stringify({ error: "Sheet 'Tool database' not found" });
 		}
 
-		// Find the column indices for CE Number, IO Number, and Vendor Name
+		// Find the column indices
 		const [
 			colTimeStamp,
 			colEmailAddress,
@@ -1054,68 +1054,136 @@ function searchIONumberDirect(ioNumber) {
 			throw new Error("Sheet 'Tool database' not found");
 		}
 
-		const dataRange = sheet.getDataRange();
-		const values = dataRange.getValues();
-		const headers = values[0];
+		const [
+			colTimeStamp,
+			colEmailAddress,
+			colCEStartDate,
+			colCEEndDate,
+			colDateOfIssue,
+			colProgramName,
+			colVendorName,
+			colSignedByVendor,
+			colAuthorizeSignatory,
+			colPaymentTerms,
+			colCENumber,
+			colCurrency,
+			colVat,
+			// colGLCode,
+			colGLDesc,
+			colCostCenter,
+			colIONumber,
+			colIOBalance,
+			colAccrued,
+			colCEPaymentStatus,
+			colUploadedCEFile,
+			colRemarks,
+			colSARC1,
+			colSARC2,
+			colSARC3,
+			colSARC4,
+			colSARC5,
+		] = getColumnIndexByHeaders(sheet, [
+			"Time Stamp (Tool Generated)",
+			"Email Address",
+			"CE Start Date",
+			"CE End Date",
+			"Date of Issue",
+			"Program Name",
+			"Vendor Name",
+			"Signed by Vendor?",
+			"Globe Authorize Signatory",
+			"Payment Terms",
+			"Cost Estimate No.",
+			"Currency",
+			"Total Cost Estimate Amount (Vat-ex)",
+			// "GL Code",
+			"GL Description",
+			"Cost Center",
+			"IO Number",
+			"IO BALANCE",
+			"Accrued?",
+			"CE Payment Status",
+			"Uploaded CE File",
+			"Remarks",
+			"SAP Ariba Reference Code 1",
+			"SAP Ariba Reference Code 2",
+			"SAP Ariba Reference Code 3",
+			"SAP Ariba Reference Code 4",
+			"SAP Ariba Reference Code 5",
+		]);
 
-		// Find the column indices for IO Number, Vendor Name, Program Name, and CE Number
-		const colIONumber = headers.indexOf("IO Number");
-		const colVendorName = headers.indexOf("Vendor Name");
-		const colProgramName = headers.indexOf("Program Name");
-		const colCENumber = headers.indexOf("Cost Estimate No.");
-
-		if (colIONumber === -1 || colVendorName === -1 || colProgramName === -1 || colCENumber === -1) {
-			throw new Error("Required columns not found");
+		if (colTimeStamp === 0 || colCENumber === 0 || colIONumber === 0 || colVendorName === 0 || colSARC5 == 0) {
+			Logger.log("Error: Required columns not found");
+			return JSON.stringify({ error: "Required columns not found" });
 		}
 
-		// Filter rows based on IO Number (case-insensitive and trimmed)
-		const filteredRows = values.filter((row) => row[colIONumber].toString().trim().toLowerCase() === ioNumber.trim().toLowerCase());
+		const startColumn = colTimeStamp;
+		const lastRow = sheet.getLastRow();
+		const width = colSARC5 - colTimeStamp + 1;
 
-		if (filteredRows.length === 0) {
+		const ioNumberRange = sheet.getRange(2, colIONumber, lastRow);
+		let foundRanges = ioNumberRange.createTextFinder(ioNumber).findAll();
+
+		if (foundRanges.length == 0) {
 			return JSON.stringify({ found: false, error: "No data found for IO Number: " + ioNumber });
 		}
 
-		// If IO Number is unique, return the first row's data
-		if (filteredRows.length === 1) {
-			const row = filteredRows[0];
-			const result = {
-				"Time Stamp (Tool Generated)": row[headers.indexOf("Time Stamp (Tool Generated)")].toString(),
-				"Email Address": row[headers.indexOf("Email Address")].toString(),
-				"CE Start Date": row[headers.indexOf("CE Start Date")].toString(),
-				"CE End Date": row[headers.indexOf("CE End Date")].toString(),
-				"Date of Issue": row[headers.indexOf("Date of Issue")].toString(),
-				"Program Name": row[headers.indexOf("Program Name")].toString(),
-				"Vendor Name": row[headers.indexOf("Vendor Name")].toString(),
-				"Signed by Vendor?": row[headers.indexOf("Signed by Vendor?")].toString(),
-				"Globe Authorize Signatory": row[headers.indexOf("Globe Authorize Signatory")].toString(),
-				"Payment Terms": row[headers.indexOf("Payment Terms")].toString(),
-				"Cost Estimate No.": row[headers.indexOf("Cost Estimate No.")].toString(),
-				Currency: row[headers.indexOf("Currency")].toString(),
-				"Total Cost Estimate Amount (Vat-ex)": row[headers.indexOf("Total Cost Estimate Amount (Vat-ex)")].toString(),
-				"GL Description": row[headers.indexOf("GL Description")].toString(),
-				"IO Number": row[headers.indexOf("IO Number")].toString(),
-				"IO BALANCE": row[headers.indexOf("IO BALANCE")].toString(),
-				"Cost Center": row[headers.indexOf("Cost Center")].toString(),
-				"Accrued?": row[headers.indexOf("Accrued?")].toString(),
-				"CE Payment Status": row[headers.indexOf("CE Payment Status")].toString(),
-				"Uploaded CE File": row[headers.indexOf("Uploaded CE File")].toString(),
-				"SAP Ariba Reference Code 1": row[headers.indexOf("SAP Ariba Reference Code 1")].toString(),
-				"SAP Ariba Reference Code 2": row[headers.indexOf("SAP Ariba Reference Code 2")].toString(),
-				"SAP Ariba Reference Code 3": row[headers.indexOf("SAP Ariba Reference Code 3")].toString(),
-				"SAP Ariba Reference Code 4": row[headers.indexOf("SAP Ariba Reference Code 4")].toString(),
-				"SAP Ariba Reference Code 5": row[headers.indexOf("SAP Ariba Reference Code 5")].toString(),
+		const allValues = sheet.getRange(2, startColumn, lastRow, width).getValues();
+
+		let result = { found: false, data: {}, ceRowNumber: null, nonUniqueRows: null };
+
+		// If unique, return the first row's data
+		if (foundRanges.length === 1) {
+			result.found = true;
+			result.ceRowNumber = foundRanges[0].getRow();
+			let values = allValues[result.ceRowNumber - 2]; //- 2 becuase header is not included
+			result.data = {
+				"Time Stamp (Tool Generated)": values[colTimeStamp - 2].toString(),
+				"Email Address": values[colEmailAddress - 2].toString(),
+				"CE Start Date": values[colCEStartDate - 2].toString(),
+				"CE End Date": values[colCEEndDate - 2].toString(),
+				"Date of Issue": values[colDateOfIssue - 2].toString(),
+				"Program Name": values[colProgramName - 2].toString(),
+				"Vendor Name": values[colVendorName - 2].toString(),
+				"Signed by Vendor?": values[colSignedByVendor - 2].toString(),
+				"Globe Authorize Signatory": values[colAuthorizeSignatory - 2].toString(),
+				"Payment Terms": values[colPaymentTerms - 2].toString(),
+				"Cost Estimate No.": values[colCENumber - 2].toString(),
+				Currency: values[colCurrency - 2].toString(),
+				"Total Cost Estimate Amount (Vat-ex)": values[colVat - 2].toString(),
+				"GL Description": values[colGLDesc - 2].toString(),
+				"IO Number": values[colIONumber - 2].toString(),
+				"IO BALANCE": values[colIOBalance - 2].toString(),
+				"Cost Center": values[colCostCenter - 2].toString(),
+				"Accrued?": values[colAccrued - 2].toString(),
+				"CE Payment Status": values[colCEPaymentStatus - 2].toString(),
+				"Uploaded CE File": values[colUploadedCEFile - 2].toString(),
+				Remarks: values[colRemarks - 2].toString(),
+				"SAP Ariba Reference Code 1": values[colSARC1 - 2].toString(),
+				"SAP Ariba Reference Code 2": values[colSARC2 - 2].toString(),
+				"SAP Ariba Reference Code 3": values[colSARC3 - 2].toString(),
+				"SAP Ariba Reference Code 4": values[colSARC4 - 2].toString(),
+				"SAP Ariba Reference Code 5": values[colSARC5 - 2].toString(),
 			};
-			return JSON.stringify({ found: true, data: result });
-		} else {
-			// If IO Number is not unique, return the list of non-unique rows
-			const nonUniqueRows = filteredRows.map((row) => ({
-				ioNumber: row[colIONumber].toString(),
-				vendorName: row[colVendorName].toString(),
-				programName: row[colProgramName].toString(),
-				ceNumber: row[colCENumber].toString(),
-			}));
-			return JSON.stringify({ found: false, nonUniqueRows: nonUniqueRows });
+
+			Logger.log("Returning result: " + JSON.stringify(result));
+			return JSON.stringify(result);
 		}
+
+		// If IO Number is not unique, return the list of non-unique rows
+		const nonUniqueRows = foundRanges.map((range) => {
+			const ceRowNumber = range.getRow();
+			const values = allValues[ceRowNumber - 2];
+			return {
+				ioNumber: values[colIONumber - 2].toString(),
+				vendorName: values[colVendorName - 2].toString(),
+				programName: values[colProgramName - 2].toString(),
+				ceNumber: values[colCENumber - 2].toString(),
+				ceRowNumber: ceRowNumber,
+			};
+		});
+		result.nonUniqueRows = nonUniqueRows;
+		return JSON.stringify(result);
 	} catch (error) {
 		Logger.log("Error in searchIONumberDirect: " + error.toString());
 		return JSON.stringify({ error: error.toString() });
@@ -1123,66 +1191,107 @@ function searchIONumberDirect(ioNumber) {
 }
 
 // Function to get row data by IO Number, Vendor Name, Program Name, and CE Number
-function getRowDataByIONumberAndDetails(ioNumber, vendorName, programName, ceNumber) {
+function getRowByCERowNumber(ceRowNumber) {
+	console.log(ceRowNumber);
 	try {
 		const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tool database");
 		if (!sheet) {
 			throw new Error("Sheet 'Tool database' not found");
 		}
 
-		const dataRange = sheet.getDataRange();
-		const values = dataRange.getValues();
-		const headers = values[0];
+		const [
+			colTimeStamp,
+			colEmailAddress,
+			colCEStartDate,
+			colCEEndDate,
+			colDateOfIssue,
+			colProgramName,
+			colVendorName,
+			colSignedByVendor,
+			colAuthorizeSignatory,
+			colPaymentTerms,
+			colCENumber,
+			colCurrency,
+			colVat,
+			// colGLCode,
+			colGLDesc,
+			colCostCenter,
+			colIONumber,
+			colIOBalance,
+			colAccrued,
+			colCEPaymentStatus,
+			colUploadedCEFile,
+			colRemarks,
+			colSARC1,
+			colSARC2,
+			colSARC3,
+			colSARC4,
+			colSARC5,
+		] = getColumnIndexByHeaders(sheet, [
+			"Time Stamp (Tool Generated)",
+			"Email Address",
+			"CE Start Date",
+			"CE End Date",
+			"Date of Issue",
+			"Program Name",
+			"Vendor Name",
+			"Signed by Vendor?",
+			"Globe Authorize Signatory",
+			"Payment Terms",
+			"Cost Estimate No.",
+			"Currency",
+			"Total Cost Estimate Amount (Vat-ex)",
+			// "GL Code",
+			"GL Description",
+			"Cost Center",
+			"IO Number",
+			"IO BALANCE",
+			"Accrued?",
+			"CE Payment Status",
+			"Uploaded CE File",
+			"Remarks",
+			"SAP Ariba Reference Code 1",
+			"SAP Ariba Reference Code 2",
+			"SAP Ariba Reference Code 3",
+			"SAP Ariba Reference Code 4",
+			"SAP Ariba Reference Code 5",
+		]);
 
-		// Find the column indices for IO Number, Vendor Name, Program Name, and CE Number
-		const colIONumber = headers.indexOf("IO Number");
-		const colVendorName = headers.indexOf("Vendor Name");
-		const colProgramName = headers.indexOf("Program Name");
-		const colCENumber = headers.indexOf("Cost Estimate No.");
+		const startColumn = colTimeStamp;
+		const lastRow = sheet.getLastRow();
+		const width = colSARC5 - colTimeStamp + 1;
 
-		if (colIONumber === -1 || colVendorName === -1 || colProgramName === -1 || colCENumber === -1) {
-			throw new Error("Required columns not found");
-		}
-
-		// Find the row that matches the IO Number, Vendor Name, Program Name, and CE Number
-		const row = values.find(
-			(row) =>
-				row[colIONumber].toString().trim().toLowerCase() === ioNumber.trim().toLowerCase() &&
-				row[colVendorName].toString().trim().toLowerCase() === vendorName.trim().toLowerCase() &&
-				row[colProgramName].toString().trim().toLowerCase() === programName.trim().toLowerCase() &&
-				row[colCENumber].toString().trim().toLowerCase() === ceNumber.trim().toLowerCase()
-		);
-
-		if (!row) {
-			throw new Error("Row not found");
-		}
+		const ceRowNumberRange = sheet.getRange(ceRowNumber, startColumn, 1, width);
+		const values = ceRowNumberRange.getValues()[0];
+		console.log(values);
 
 		const result = {
-			"Time Stamp (Tool Generated)": row[headers.indexOf("Time Stamp (Tool Generated)")].toString(),
-			"Email Address": row[headers.indexOf("Email Address")].toString(),
-			"CE Start Date": row[headers.indexOf("CE Start Date")].toString(),
-			"CE End Date": row[headers.indexOf("CE End Date")].toString(),
-			"Date of Issue": row[headers.indexOf("Date of Issue")].toString(),
-			"Program Name": row[headers.indexOf("Program Name")].toString(),
-			"Vendor Name": row[headers.indexOf("Vendor Name")].toString(),
-			"Signed by Vendor?": row[headers.indexOf("Signed by Vendor?")].toString(),
-			"Globe Authorize Signatory": row[headers.indexOf("Globe Authorize Signatory")].toString(),
-			"Payment Terms": row[headers.indexOf("Payment Terms")].toString(),
-			"Cost Estimate No.": row[headers.indexOf("Cost Estimate No.")].toString(),
-			Currency: row[headers.indexOf("Currency")].toString(),
-			"Total Cost Estimate Amount (Vat-ex)": row[headers.indexOf("Total Cost Estimate Amount (Vat-ex)")].toString(),
-			"GL Description": row[headers.indexOf("GL Description")].toString(),
-			"IO Number": row[headers.indexOf("IO Number")].toString(),
-			"IO BALANCE": row[headers.indexOf("IO BALANCE")].toString(),
-			"Cost Center": row[headers.indexOf("Cost Center")].toString(),
-			"Accrued?": row[headers.indexOf("Accrued?")].toString(),
-			"CE Payment Status": row[headers.indexOf("CE Payment Status")].toString(),
-			"Uploaded CE File": row[headers.indexOf("Uploaded CE File")].toString(),
-			"SAP Ariba Reference Code 1": row[headers.indexOf("SAP Ariba Reference Code 1")].toString(),
-			"SAP Ariba Reference Code 2": row[headers.indexOf("SAP Ariba Reference Code 2")].toString(),
-			"SAP Ariba Reference Code 3": row[headers.indexOf("SAP Ariba Reference Code 3")].toString(),
-			"SAP Ariba Reference Code 4": row[headers.indexOf("SAP Ariba Reference Code 4")].toString(),
-			"SAP Ariba Reference Code 5": row[headers.indexOf("SAP Ariba Reference Code 5")].toString(),
+			"Time Stamp (Tool Generated)": values[colTimeStamp - 2].toString(),
+			"Email Address": values[colEmailAddress - 2].toString(),
+			"CE Start Date": values[colCEStartDate - 2].toString(),
+			"CE End Date": values[colCEEndDate - 2].toString(),
+			"Date of Issue": values[colDateOfIssue - 2].toString(),
+			"Program Name": values[colProgramName - 2].toString(),
+			"Vendor Name": values[colVendorName - 2].toString(),
+			"Signed by Vendor?": values[colSignedByVendor - 2].toString(),
+			"Globe Authorize Signatory": values[colAuthorizeSignatory - 2].toString(),
+			"Payment Terms": values[colPaymentTerms - 2].toString(),
+			"Cost Estimate No.": values[colCENumber - 2].toString(),
+			Currency: values[colCurrency - 2].toString(),
+			"Total Cost Estimate Amount (Vat-ex)": values[colVat - 2].toString(),
+			"GL Description": values[colGLDesc - 2].toString(),
+			"IO Number": values[colIONumber - 2].toString(),
+			"IO BALANCE": values[colIOBalance - 2].toString(),
+			"Cost Center": values[colCostCenter - 2].toString(),
+			"Accrued?": values[colAccrued - 2].toString(),
+			"CE Payment Status": values[colCEPaymentStatus - 2].toString(),
+			"Uploaded CE File": values[colUploadedCEFile - 2].toString(),
+			Remarks: values[colRemarks - 2].toString(),
+			"SAP Ariba Reference Code 1": values[colSARC1 - 2].toString(),
+			"SAP Ariba Reference Code 2": values[colSARC2 - 2].toString(),
+			"SAP Ariba Reference Code 3": values[colSARC3 - 2].toString(),
+			"SAP Ariba Reference Code 4": values[colSARC4 - 2].toString(),
+			"SAP Ariba Reference Code 5": values[colSARC5 - 2].toString(),
 		};
 
 		return JSON.stringify(result);

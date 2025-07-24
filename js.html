@@ -2040,7 +2040,7 @@
 	               <td>${row.programName}</td>
 	               <td>${row.vendorName}</td>
 	               <td>
-	                   <button class="btn btn-primary btn-sm" onclick="selectNonUniqueRow('${row.ioNumber}', '${row.vendorName}', '${row.programName}', '${row.ceNumber}')">Select</button>
+	                   <button class="btn btn-primary btn-sm" onclick="selectNonUniqueRow('${row.ceRowNumber}')">Select</button>
 	               </td>
 	           </tr>
 	       `);
@@ -2051,7 +2051,7 @@
 		}
 
 		// Function to handle row selection from the non-unique list
-		window.selectNonUniqueRow = function (ioNumber, vendorName, programName, ceNumber) {
+		window.selectNonUniqueRow = function (ceRowNumber) {
 			Swal.fire({
 				title: "Pulling Data...",
 				text: "Please wait while we fetch the data.",
@@ -2094,7 +2094,7 @@
 						text: "An error occurred while fetching the selected row: " + error.toString(),
 					});
 				})
-				.getRowDataByIONumberAndDetails(ioNumber, vendorName, programName, ceNumber);
+				.getRowByCERowNumber(ceRowNumber);
 		};
 
 		// Event listener for direct IO Number search button

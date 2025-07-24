@@ -35,3 +35,15 @@ function testSearchVendor() {
 	Logger.log(checkVendorName("vendor"));
 	Logger.log("test end");
 }
+
+function testSearchIODirect() {
+	Logger.log("test start");
+	Logger.log(searchIONumberDirect("CMB10CBY2024"));
+	Logger.log("test end");
+}
+
+function testGetRowByCERowNumber(ceRowNumber) {
+	Logger.log("test start");
+	Logger.log(getRowByCERowNumber(501));
+	Logger.log("test end");
+}
