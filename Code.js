@@ -736,6 +736,29 @@ function newSaveUploadedFile(base64Data, fileName) {
 	}
 }
 
+function getColumnIndexByHeaders(sheet, headerNames) {
+	// Get the entire header row (row 1) as a 2D array
+	const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues();
+
+	// Find the index of the headerName in the 1D array of headers
+	// getValues() returns a 2D array, so we get the first (and only) row at index [0]
+	let indices = [];
+	headerNames.forEach(function (headerName) {
+		let index = headers[0].indexOf(headerName);
+		if (index !== -1) {
+			// If the header was found, add 1 to convert the 0-based array index
+			// to a 1-based spreadsheet column number.
+			index += 1;
+		} else {
+			// If the header is not found, return 0 to indicate failure.
+			index = 0;
+		}
+		indices.push(parseInt(index));
+	});
+
+	return indices;
+}
+
 // Function to search for CE Number, IO Number, and Vendor Name
 function searchCENumber(ceNumber, ioNumber = null, vendorName = null) {
 	try {
@@ -747,61 +770,112 @@ function searchCENumber(ceNumber, ioNumber = null, vendorName = null) {
 			return JSON.stringify({ error: "Sheet 'Tool database' not found" });
 		}
 
-		const dataRange = sheet.getDataRange();
-		const values = dataRange.getValues();
-		Logger.log("Total rows in sheet: " + values.length);
-
-		const headers = values[0]; // assuming the headers are in the first row
-
 		// Find the column indices for CE Number, IO Number, and Vendor Name
-		const colCENumber = headers.indexOf("Cost Estimate No.");
-		const colIONumber = headers.indexOf("IO Number");
-		const colVendorName = headers.indexOf("Vendor Name");
+		const [
+			colTimeStamp,
+			colEmailAddress,
+			colCEStartDate,
+			colCEEndDate,
+			colDateOfIssue,
+			colProgramName,
+			colVendorName,
+			colSignedByVendor,
+			colAuthorizeSignatory,
+			colPaymentTerms,
+			colCENumber,
+			colCurrency,
+			colVat,
+			// colGLCode,
+			colGLDesc,
+			colCostCenter,
+			colIONumber,
+			colIOBalance,
+			colAccrued,
+			colCEPaymentStatus,
+			colUploadedCEFile,
+			colRemarks,
+			colSARC1,
+			colSARC2,
+			colSARC3,
+			colSARC4,
+			colSARC5,
+		] = getColumnIndexByHeaders(sheet, [
+			"Time Stamp (Tool Generated)",
+			"Email Address",
+			"CE Start Date",
+			"CE End Date",
+			"Date of Issue",
+			"Program Name",
+			"Vendor Name",
+			"Signed by Vendor?",
+			"Globe Authorize Signatory",
+			"Payment Terms",
+			"Cost Estimate No.",
+			"Currency",
+			"Total Cost Estimate Amount (Vat-ex)",
+			// "GL Code",
+			"GL Description",
+			"Cost Center",
+			"IO Number",
+			"IO BALANCE",
+			"Accrued?",
+			"CE Payment Status",
+			"Uploaded CE File",
+			"Remarks",
+			"SAP Ariba Reference Code 1",
+			"SAP Ariba Reference Code 2",
+			"SAP Ariba Reference Code 3",
+			"SAP Ariba Reference Code 4",
+			"SAP Ariba Reference Code 5",
+		]);
 
-		if (colCENumber === -1 || colIONumber === -1 || colVendorName === -1) {
+		if (colTimeStamp === 0 || colCENumber === 0 || colIONumber === 0 || colVendorName === 0 || colSARC5 == 0) {
 			Logger.log("Error: Required columns not found");
 			return JSON.stringify({ error: "Required columns not found" });
 		}
 
-		let result = { found: false, data: {}, isUnique: true, nextSearch: null };
+		const startColumn = colTimeStamp;
+		const lastRow = sheet.getLastRow();
+		const width = colSARC5 - colTimeStamp + 1;
 
-		// Filter rows based on CE Number (case-insensitive and trimmed)
-		let filteredRows = values.filter((row) => {
-			const rowCENumber = row[colCENumber].toString().trim().toLowerCase();
-			return rowCENumber === ceNumber.trim().toLowerCase();
-		});
+		const ceNumberRange = sheet.getRange(2, colCENumber, lastRow);
+		let foundRanges = ceNumberRange.createTextFinder(ceNumber).findAll();
 
-		if (filteredRows.length === 0) {
-			Logger.log("No data found for CE Number: " + ceNumber);
-			return JSON.stringify({ found: false, error: "No data found for CE Number: " + ceNumber });
+		if (foundRanges.length == 0) {
+			console.log("No data found for CE Number: " + ceNumber);
+			return JSON.stringify({ found: false, error: "No data found for CE Number: " + ioNumber });
 		}
 
-		// If IO Number is provided, filter further (case-insensitive and trimmed)
+		const allValues = sheet.getRange(2, startColumn, lastRow, width).getValues();
+
 		if (ioNumber) {
-			filteredRows = filteredRows.filter((row) => {
-				const rowIONumber = row[colIONumber].toString().trim().toLowerCase();
-				return rowIONumber === ioNumber.trim().toLowerCase();
+			foundRanges = foundRanges.filter(function (range) {
+				const rowIndex = range.getRow() - 2; // - 2 becuase header is not included
+				const rowValue = allValues[rowIndex];
+				return rowValue[colIONumber - 2] == ioNumber; //-2 because timestamp is the starting which is in col 2
 			});
-			if (filteredRows.length === 0) {
+			if (foundRanges.length === 0) {
 				Logger.log("No data found for IO Number: " + ioNumber);
 				return JSON.stringify({ found: false, error: "No data found for IO Number: " + ioNumber });
 			}
 		}
 
-		// If Vendor Name is provided, filter further (case-insensitive and trimmed)
 		if (vendorName) {
-			filteredRows = filteredRows.filter((row) => {
-				const rowVendorName = row[colVendorName].toString().trim().toLowerCase();
-				return rowVendorName === vendorName.trim().toLowerCase();
+			foundRanges = foundRanges.filter(function (range) {
+				const rowIndex = range.getRow() - 2; // - 2 becuase header is not included
+				const rowValue = allValues[rowIndex];
+				return rowValue[colVendorName - 2] == vendorName; //-2 because timestamp is the starting which is in col 2
 			});
-			if (filteredRows.length === 0) {
+			if (foundRanges.length === 0) {
 				Logger.log("No data found for Vendor Name: " + vendorName);
 				return JSON.stringify({ found: false, error: "No data found for Vendor Name: " + vendorName });
 			}
 		}
 
+		let result = { found: false, data: {}, isUnique: true, nextSearch: null, ceRowNumber: null };
+
 		// Check if the result is unique
-		if (filteredRows.length > 1) {
+		if (foundRanges.length > 1) {
 			result.isUnique = false;
 			if (!ioNumber) {
 				result.nextSearch = "IO Number";
@@ -811,34 +885,37 @@ function searchCENumber(ceNumber, ioNumber = null, vendorName = null) {
 		}
 
 		// If unique, return the first row's data
-		if (filteredRows.length === 1) {
+		if (foundRanges.length === 1) {
 			result.found = true;
+			result.ceRowNumber = foundRanges[0].getRow();
+			let values = allValues[result.ceRowNumber - 2]; //- 2 becuase header is not included
 			result.data = {
-				"Time Stamp (Tool Generated)": filteredRows[0][headers.indexOf("Time Stamp (Tool Generated)")].toString(),
-				"Email Address": filteredRows[0][headers.indexOf("Email Address")].toString(),
-				"CE Start Date": filteredRows[0][headers.indexOf("CE Start Date")].toString(),
-				"CE End Date": filteredRows[0][headers.indexOf("CE End Date")].toString(),
-				"Date of Issue": filteredRows[0][headers.indexOf("Date of Issue")].toString(),
-				"Program Name": filteredRows[0][headers.indexOf("Program Name")].toString(),
-				"Vendor Name": filteredRows[0][headers.indexOf("Vendor Name")].toString(),
-				"Signed by Vendor?": filteredRows[0][headers.indexOf("Signed by Vendor?")].toString(),
-				"Globe Authorize Signatory": filteredRows[0][headers.indexOf("Globe Authorize Signatory")].toString(),
-				"Payment Terms": filteredRows[0][headers.indexOf("Payment Terms")].toString(),
-				"Cost Estimate No.": filteredRows[0][headers.indexOf("Cost Estimate No.")].toString(),
-				Currency: filteredRows[0][headers.indexOf("Currency")].toString(),
-				"Total Cost Estimate Amount (Vat-ex)": filteredRows[0][headers.indexOf("Total Cost Estimate Amount (Vat-ex)")].toString(),
-				"GL Description": filteredRows[0][headers.indexOf("GL Description")].toString(),
-				"IO Number": filteredRows[0][headers.indexOf("IO Number")].toString(),
-				"IO BALANCE": filteredRows[0][headers.indexOf("IO BALANCE")].toString(),
-				"Cost Center": filteredRows[0][headers.indexOf("Cost Center")].toString(),
-				"Accrued?": filteredRows[0][headers.indexOf("Accrued?")].toString(),
-				"CE Payment Status": filteredRows[0][headers.indexOf("CE Payment Status")].toString(),
-				"Uploaded CE File": filteredRows[0][headers.indexOf("Uploaded CE File")].toString(),
-				"SAP Ariba Reference Code 1": filteredRows[0][headers.indexOf("SAP Ariba Reference Code 1")].toString(),
-				"SAP Ariba Reference Code 2": filteredRows[0][headers.indexOf("SAP Ariba Reference Code 2")].toString(),
-				"SAP Ariba Reference Code 3": filteredRows[0][headers.indexOf("SAP Ariba Reference Code 3")].toString(),
-				"SAP Ariba Reference Code 4": filteredRows[0][headers.indexOf("SAP Ariba Reference Code 4")].toString(),
-				"SAP Ariba Reference Code 5": filteredRows[0][headers.indexOf("SAP Ariba Reference Code 5")].toString(),
+				"Time Stamp (Tool Generated)": values[colTimeStamp - 2].toString(),
+				"Email Address": values[colEmailAddress - 2].toString(),
+				"CE Start Date": values[colCEStartDate - 2].toString(),
+				"CE End Date": values[colCEEndDate - 2].toString(),
+				"Date of Issue": values[colDateOfIssue - 2].toString(),
+				"Program Name": values[colProgramName - 2].toString(),
+				"Vendor Name": values[colVendorName - 2].toString(),
+				"Signed by Vendor?": values[colSignedByVendor - 2].toString(),
+				"Globe Authorize Signatory": values[colAuthorizeSignatory - 2].toString(),
+				"Payment Terms": values[colPaymentTerms - 2].toString(),
+				"Cost Estimate No.": values[colCENumber - 2].toString(),
+				Currency: values[colCurrency - 2].toString(),
+				"Total Cost Estimate Amount (Vat-ex)": values[colVat - 2].toString(),
+				"GL Description": values[colGLDesc - 2].toString(),
+				"IO Number": values[colIONumber - 2].toString(),
+				"IO BALANCE": values[colIOBalance - 2].toString(),
+				"Cost Center": values[colCostCenter - 2].toString(),
+				"Accrued?": values[colAccrued - 2].toString(),
+				"CE Payment Status": values[colCEPaymentStatus - 2].toString(),
+				"Uploaded CE File": values[colUploadedCEFile - 2].toString(),
+				Remarks: values[colRemarks - 2].toString(),
+				"SAP Ariba Reference Code 1": values[colSARC1 - 2].toString(),
+				"SAP Ariba Reference Code 2": values[colSARC2 - 2].toString(),
+				"SAP Ariba Reference Code 3": values[colSARC3 - 2].toString(),
+				"SAP Ariba Reference Code 4": values[colSARC4 - 2].toString(),
+				"SAP Ariba Reference Code 5": values[colSARC5 - 2].toString(),
 			};
 		}
 
@@ -850,127 +927,61 @@ function searchCENumber(ceNumber, ioNumber = null, vendorName = null) {
 	}
 }
 
-function saveBulkInvoiceData(fileName, ioNumber, data) {
+function saveBulkInvoiceData(fileName, ioNumber, data, ceRowNumber) {
+	console.log(fileName, ioNumber, ceRowNumber);
 	const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tool database");
 	if (!sheet) {
 		throw new Error("Bulk Invoice sheet not found");
 	}
 
-	// Get all data from the sheet
-	const dataRange = sheet.getDataRange();
-	const values = dataRange.getValues();
-	const headers = values[0]; // First row contains headers
+	const fixedHeaders = ["Uploaded CE File", "IO Number", "Time Stamp (Tool Generated)", "Remarks"];
+	const emailHeaders = [];
 
-	// Find the column indices for 'Uploaded CE File' and 'IO Number'
-	const fileColumnIndex = headers.indexOf("Uploaded CE File");
-	const ioNumberColumnIndex = headers.indexOf("IO Number");
+	for (let i = 1; i <= 20; i++) {
+		emailHeaders.push(`Invoice Email Address ${i}`);
+	}
+
+	const allHeaders = [...fixedHeaders, ...emailHeaders];
+
+	// // Get all data from the sheet
+	const [fileColumnIndex, ioNumberColumnIndex, colStart, colEnd, ...emailColumnIndices] = getColumnIndexByHeaders(sheet, allHeaders);
 
 	if (fileColumnIndex === -1 || ioNumberColumnIndex === -1) {
 		throw new Error("Required columns (Uploaded CE File or IO Number) not found");
 	}
 
-	// Log the fileName and ioNumber being searched
-	console.log("Searching for File Name:", fileName, "and IO Number:", ioNumber);
+	const ceRange = sheet.getRange(ceRowNumber, 1, 1, sheet.getLastColumn());
+	const ceValues = ceRange.getValues()[0];
 
-	// Find the row index matching the file name and IO Number
-	let fileRowIndex = -1;
-	for (let i = 1; i < values.length; i++) {
-		const rowFileName = values[i][fileColumnIndex];
-		const rowIONumber = values[i][ioNumberColumnIndex];
-
-		// Log the values in the spreadsheet for debugging
-		// console.log(`Row ${i + 1}: File Name: "${rowFileName}", IO Number: "${rowIONumber}"`);
-
-		// Ensure rowFileName and rowIONumber are treated as strings
-		const rowFileNameStr = String(rowFileName || "")
-			.trim()
-			.toLowerCase();
-		const rowIONumberStr = String(rowIONumber || "")
-			.trim()
-			.toLowerCase();
-		const fileNameStr = String(fileName || "")
-			.trim()
-			.toLowerCase();
-		const ioNumberStr = String(ioNumber || "")
-			.trim()
-			.toLowerCase();
-
-		// Check if the file name and IO Number match (case-insensitive and trimmed)
-		if (rowFileNameStr === fileNameStr && rowIONumberStr === ioNumberStr) {
-			fileRowIndex = i + 1; // Rows are 1-indexed in Google Sheets
-			console.log("Match found at row:", fileRowIndex);
-			break;
-		}
+	//Check if ceRowNumber still has correct details
+	const fileValue = ceValues[fileColumnIndex - 1];
+	const ioValue = ceValues[ioNumberColumnIndex - 1];
+	if (fileName != fileValue || ioNumber != ioValue) {
+		throw new Error("The CE you are updating has been edited or deleted. <br> To prevent any conflicts, please reload the page.");
 	}
 
-	if (fileRowIndex === -1) {
-		throw new Error("File name and IO Number combination not found in the sheet");
-	}
+	let nextSlotIndex = -1; // next slot index means index for emailColumnIndices
+	let avaliableSlots = 0;
 
-	// Define the invoice fields up to 20 slots
-	const invoiceFields = [];
-	for (let i = 1; i <= 20; i++) {
-		invoiceFields.push({
-			email: `Invoice Email Address ${i}`,
-			vendorName: `Invoice Vendor Name ${i}`,
-			number: `Invoice Number ${i}`,
-			amount: `Invoice Amount (VAT EX) ${i}`,
-			timestamp: `INVOICE SUBMISSION TIME STAMP ${i}`,
-			accrualRef: `Accrual Reference Doc ${i}`,
-			uploadedFile: `Uploaded Invoice File ${i}`,
-			invoiceDate: `Invoice Date ${i}`,
-			invoiceDueDate: `Invoice Due Date ${i}`,
-		});
-	}
-	console.log(fileRowIndex);
-	// Find the first available slot
-	let nextSlotIndex = 0;
-	for (let i = 0; i < invoiceFields.length; i++) {
-		const emailCol = headers.indexOf(invoiceFields[i].email) + 1;
-		const emailValue = sheet.getRange(fileRowIndex, emailCol).getValue();
-		if (!emailValue) {
+	for (let i = 0; i < emailColumnIndices.length; i++) {
+		let emailValue = String(ceValues[emailColumnIndices[i] - 1].trim());
+		if (emailValue == "") {
 			nextSlotIndex = i;
+			avaliableSlots = emailColumnIndices.length - i;
 			break;
 		}
 	}
 
-	if (nextSlotIndex >= invoiceFields.length) {
+	//check for available slots
+	if (nextSlotIndex == -1 || avaliableSlots < data.length) {
 		throw new Error("No more invoice slots available");
 	}
 
-	// Save each row of data to the next available invoice slot
+	//insert the data in bulk
+	let to_set = [];
 	data.forEach((row, index) => {
-		const field = invoiceFields[nextSlotIndex];
-
-		// Save the row's data to the corresponding invoice slot
-		const emailCol = headers.indexOf(field.email) + 1;
-		const vendorNameCol = headers.indexOf(field.vendorName) + 1;
-		const numberCol = headers.indexOf(field.number) + 1;
-		const amountCol = headers.indexOf(field.amount) + 1;
-		const timestampCol = headers.indexOf(field.timestamp) + 1;
-		const accrualRefCol = headers.indexOf(field.accrualRef) + 1;
-		const uploadedFileCol = headers.indexOf(field.uploadedFile) + 1;
-		const invoiceDateCol = headers.indexOf(field.invoiceDate) + 1;
-		const invoiceDueDateCol = headers.indexOf(field.invoiceDueDate) + 1;
-		console.log("accrualRefCol: ", accrualRefCol);
-		console.log("invoiceDateCol: ", invoiceDateCol);
-		console.log("invoiceDueDateCol: ", invoiceDueDateCol);
-
-		// Save the user's email address (hidden in modal but saved in spreadsheet)
-		sheet.getRange(fileRowIndex, emailCol).setValue(row.invoiceEmail);
-
-		// Save the Invoice Vendor Name
-		sheet.getRange(fileRowIndex, vendorNameCol).setValue(row.invoiceVendorName);
-
-		// Save the rest of the data
-		sheet.getRange(fileRowIndex, numberCol).setValue(row.invoiceNumber);
-		sheet.getRange(fileRowIndex, amountCol).setValue(row.invoiceAmount);
-		sheet.getRange(fileRowIndex, timestampCol).setValue(row.invoiceTimestamp);
-		sheet.getRange(fileRowIndex, accrualRefCol).setValue(row.accrualRefDoc || "");
-		sheet.getRange(fileRowIndex, invoiceDateCol).setValue(row.invoiceDate);
-		sheet.getRange(fileRowIndex, invoiceDueDateCol).setValue(row.invoiceDueDate);
-
-		// Save the uploaded file as a hyperlink
+		let temp = [row.invoiceEmail, row.invoiceVendorName, row.invoiceNumber, row.invoiceAmount, row.invoiceTimestamp, row.accrualRefDoc || ""];
+		let uploadedFile = "";
 		if (row.uploadedFile) {
 			try {
 				// Extract the file ID from the URL
@@ -986,21 +997,31 @@ function saveBulkInvoiceData(fileName, ioNumber, data) {
 					const fileNameWithoutExtension = fileName.replace(/\.(pdf|xls|xlsx)$/i, "");
 
 					// Create a hyperlink formula
-					const hyperlinkFormula = `=HYPERLINK("${url}", "${fileNameWithoutExtension}")`;
-					sheet.getRange(fileRowIndex, uploadedFileCol).setFormula(hyperlinkFormula);
+					uploadedFile = `=HYPERLINK("${url}", "${fileNameWithoutExtension}")`;
 				} else {
 					// Fallback: just store the URL as is
-					sheet.getRange(fileRowIndex, uploadedFileCol).setValue(row.uploadedFile);
+					uploadedFile = row.uploadedFile;
 				}
 			} catch (e) {
 				// If there's any error accessing the file, just store the URL as is
-				sheet.getRange(fileRowIndex, uploadedFileCol).setValue(row.uploadedFile);
+				throw new Error("Error moving file from Preview folder to CE invoice folder.");
 			}
 		}
 
-		// Move to the next available slot
-		nextSlotIndex++;
+		temp = temp.concat([uploadedFile, row.invoiceDate, row.invoiceDueDate, "", "", "", "", ""]); //there are no input fields for these columns hence blank
+
+		to_set.push(temp);
 	});
+
+	//get row again but get from next slot index
+	to_set = to_set.flat();
+	const invoiceWidth = 14; //width from email to remarks
+	const colInvoiceStart = emailColumnIndices[nextSlotIndex];
+	const colInvoiceEnd = emailColumnIndices.at(-1) + invoiceWidth;
+	const numRows = 1;
+	const numCols = to_set.length;
+	//set values
+	sheet.getRange(ceRowNumber, colInvoiceStart, numRows, numCols).setValues([to_set]);
 
 	return { success: true };
 }
@@ -1013,12 +1034,11 @@ function checkVendorName(vendorName) {
 			throw new Error("Vendor DB sheet not found");
 		}
 
-		const vendorData = vendorSheet.getDataRange().getValues();
+		const vendorData = vendorSheet.getRange("A:A").getValues();
 		const vendorNames = vendorData.map((row) => row[0].toString().trim().toLowerCase()); // Assuming vendor names are in the first column
 
 		// Check if the vendor name exists in the Vendor DB
 		const vendorExists = vendorNames.includes(vendorName.trim().toLowerCase());
-
 		return vendorExists;
 	} catch (error) {
 		Logger.log("Error in checkVendorName: " + error.toString());

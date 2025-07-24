@@ -377,7 +377,10 @@
 			const reader = new FileReader();
 			reader.onload = function (e) {
 				const fileData = e.target.result.split(",")[1]; // Get base64 data
-				google.script.run.withSuccessHandler(handleUploadSuccess).withFailureHandler(handleUploadFailure).uploadFile(fileData, file.name, ioNumber);
+				google.script.run
+					.withSuccessHandler(handleUploadSuccess)
+					.withFailureHandler(handleUploadFailure)
+					.uploadFile(fileData, file.name, ioNumber);
 			};
 			reader.readAsDataURL(file);
 
@@ -415,7 +418,9 @@
 
 			// Add error handling for the iframe
 			previewFrame.onerror = function () {
-				$("#uploadStatus").append('<div class="alert alert-warning">Preview may take a moment to load. You can access the file directly using the link below.</div>');
+				$("#uploadStatus").append(
+					'<div class="alert alert-warning">Preview may take a moment to load. You can access the file directly using the link below.</div>'
+				);
 			};
 
 			// Create a direct link to the file
@@ -486,114 +491,116 @@
 			const currentDate = formatDate(new Date().toISOString());
 
 			// Create options for Payment Terms dropdown with 15, 30, 45, and 60 days, and default set to 30
-			const paymentTermsDaysOptions = [15, 30, 45, 60].map((day) => `<option value="${day}" ${day === 30 ? "selected" : ""}>${day}</option>`).join("");
+			const paymentTermsDaysOptions = [15, 30, 45, 60]
+				.map((day) => `<option value="${day}" ${day === 30 ? "selected" : ""}>${day}</option>`)
+				.join("");
 
 			// Create options for the Currency dropdown
 			const currencyOptions = ["PHP", "USD"].map((currency) => `<option value="${currency}">${currency}</option>`).join("");
 
 			// Build the HTML structure including GL Code and GL Description fields
 			const tableHtml = `
-    <style>
-      td.required::after {
-        content: "*";
-        color: red;
-        margin-left: 5px;
-      }
-      .hidden-row {
-        display: none;
-      }
-    </style>
-    <div class="inline-flex">
-      <h3>Input Cost Estimate Data Here 
-      <i class="fa-regular fa-circle-question" data-toggle="tooltip" data-placement="top" title="Yellow input fields are required" aria-hidden="true"></i>
-    </h3>
-    </div>
-    <table class="table table-dark table-striped">
-      <thead>
-        <tr>
-          <th>Field</th>
-          <th>Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>Time Stamp (Tool Generated)</td><td>${currentDate}</td></tr>
-        <tr><td>Email Address</td><td>${username}</td></tr>
-        <tr><td>Uploaded CE File</td><td>${uploadedFileName}</td></tr>
-        <tr><td class="required">CE Start Date</td><td><input type="date" id="projectStartDate" class="form-control" required /></td></tr>
-        <tr><td class="required">CE End Date</td><td><input type="date" id="projectEndDate" class="form-control" required /></td></tr>
-        <tr><td class="required">Date of Issue</td><td><input type="date" id="dateOfIssue" class="form-control" required /></td></tr>
-        <tr><td class="required">Program Name</td><td contenteditable="true" required></td></tr>
-        <tr>
-          <td class="required">Vendor Name</td>
-          <td>
-            <input type="text" id="vendorName" class="form-control" placeholder="Start typing vendor name..." autocomplete="off" required>
-            <ul id="vendorSuggestions" class="list-group" style="display:none; position: absolute; max-height: 150px; overflow-y: auto; z-index: 1000;"></ul>
-          </td>
-        </tr>
-        <tr>
-          <td class="required">Signed by Vendor?</td>
-          <td>
-            <select id="vendorSignatory" required>
-              <option value="" disabled selected hidden>Select an option</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-          </td>
-        </tr>
-        <tr><td class="required">Globe Authorize Signatory</td><td contenteditable="true" required></td></tr>
-        <tr>
-          <td class="required">Payment Terms</td>
-          <td>
-            <select id="paymentTermsDays" required>
-              <option value="" disabled hidden>Select a Number</option>
-              ${paymentTermsDaysOptions}
-            </select> day(s) from receipt of Valid Invoice
-          </td>
-        </tr>
-        <tr><td class="required">Cost Estimate No.</td><td contenteditable="true" required></td></tr>
-        <tr>
-          <td class="required">Currency</td>
-          <td>
-            <select id="currency" required>
-              <option value="" disabled selected hidden>Select a Currency</option>
-              ${currencyOptions}
-            </select>
-          </td>
-        </tr>
-        <tr><td class="required">Total Cost Estimate Amount (Vat-ex)</td><td><input type="text" id="totalCostEstimate_1" class="form-control" required /></td></tr>
-        <tr><td>IO Number</td><td id="editableIoNumber" style="font-weight: bold; color: #87CEEB;">${ioNumber}</td></tr>
-        <tr><td>IO BALANCE</td><td id="ioBalance" style="font-weight: bold; color: #87CEEB;">Loading...</td></tr>
-        <tr id="multipleIoContainer" class="hidden-row">
-          <td>Additional IO Numbers:</td>
-          <td>
-            <table id="multipleIoTable" class="table table-bordered">
-              <thead>
-                <tr>
-                  <th>IO Number</th>
-                  <th>Total Cost Estimate Amount (Vat-ex)</th>
-                  <th>IO Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-              </tbody>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="2">
-            <button type="button" id="addMoreIoButton" class="btn btn-secondary">+ Add more IO</button>
-          </td>
-        </tr>
-        <tr><td class="required">Cost Center</td><td><select id="costCenter" required></select></td></tr>
-        <tr><td>Remarks</td><td><textarea id="remarks" class="form-control" rows="4"></textarea></td></tr>
-        <tr><td>GL Code</td><td id="glCode"></td></tr>
-        <tr><td>GL Description</td><td id="glDescription"></td></tr>
-      </tbody>
-    </table>
-    <div class="saveButton-container mt-3">
-      <button id="saveButton" class="btn btn-primary">Save</button>
-    </div>
-  `;
+	   <style>
+	     td.required::after {
+	       content: "*";
+	       color: red;
+	       margin-left: 5px;
+	     }
+	     .hidden-row {
+	       display: none;
+	     }
+	   </style>
+	   <div class="inline-flex">
+	     <h3>Input Cost Estimate Data Here
+	     <i class="fa-regular fa-circle-question" data-toggle="tooltip" data-placement="top" title="Yellow input fields are required" aria-hidden="true"></i>
+	   </h3>
+	   </div>
+	   <table class="table table-dark table-striped">
+	     <thead>
+	       <tr>
+	         <th>Field</th>
+	         <th>Value</th>
+	       </tr>
+	     </thead>
+	     <tbody>
+	       <tr><td>Time Stamp (Tool Generated)</td><td>${currentDate}</td></tr>
+	       <tr><td>Email Address</td><td>${username}</td></tr>
+	       <tr><td>Uploaded CE File</td><td>${uploadedFileName}</td></tr>
+	       <tr><td class="required">CE Start Date</td><td><input type="date" id="projectStartDate" class="form-control" required /></td></tr>
+	       <tr><td class="required">CE End Date</td><td><input type="date" id="projectEndDate" class="form-control" required /></td></tr>
+	       <tr><td class="required">Date of Issue</td><td><input type="date" id="dateOfIssue" class="form-control" required /></td></tr>
+	       <tr><td class="required">Program Name</td><td contenteditable="true" required></td></tr>
+	       <tr>
+	         <td class="required">Vendor Name</td>
+	         <td>
+	           <input type="text" id="vendorName" class="form-control" placeholder="Start typing vendor name..." autocomplete="off" required>
+	           <ul id="vendorSuggestions" class="list-group" style="display:none; position: absolute; max-height: 150px; overflow-y: auto; z-index: 1000;"></ul>
+	         </td>
+	       </tr>
+	       <tr>
+	         <td class="required">Signed by Vendor?</td>
+	         <td>
+	           <select id="vendorSignatory" required>
+	             <option value="" disabled selected hidden>Select an option</option>
+	             <option value="Yes">Yes</option>
+	             <option value="No">No</option>
+	           </select>
+	         </td>
+	       </tr>
+	       <tr><td class="required">Globe Authorize Signatory</td><td contenteditable="true" required></td></tr>
+	       <tr>
+	         <td class="required">Payment Terms</td>
+	         <td>
+	           <select id="paymentTermsDays" required>
+	             <option value="" disabled hidden>Select a Number</option>
+	             ${paymentTermsDaysOptions}
+	           </select> day(s) from receipt of Valid Invoice
+	         </td>
+	       </tr>
+	       <tr><td class="required">Cost Estimate No.</td><td contenteditable="true" required></td></tr>
+	       <tr>
+	         <td class="required">Currency</td>
+	         <td>
+	           <select id="currency" required>
+	             <option value="" disabled selected hidden>Select a Currency</option>
+	             ${currencyOptions}
+	           </select>
+	         </td>
+	       </tr>
+	       <tr><td class="required">Total Cost Estimate Amount (Vat-ex)</td><td><input type="text" id="totalCostEstimate_1" class="form-control" required /></td></tr>
+	       <tr><td>IO Number</td><td id="editableIoNumber" style="font-weight: bold; color: #87CEEB;">${ioNumber}</td></tr>
+	       <tr><td>IO BALANCE</td><td id="ioBalance" style="font-weight: bold; color: #87CEEB;">Loading...</td></tr>
+	       <tr id="multipleIoContainer" class="hidden-row">
+	         <td>Additional IO Numbers:</td>
+	         <td>
+	           <table id="multipleIoTable" class="table table-bordered">
+	             <thead>
+	               <tr>
+	                 <th>IO Number</th>
+	                 <th>Total Cost Estimate Amount (Vat-ex)</th>
+	                 <th>IO Balance</th>
+	               </tr>
+	             </thead>
+	             <tbody>
+	             </tbody>
+	           </table>
+	         </td>
+	       </tr>
+	       <tr>
+	         <td colspan="2">
+	           <button type="button" id="addMoreIoButton" class="btn btn-secondary">+ Add more IO</button>
+	         </td>
+	       </tr>
+	       <tr><td class="required">Cost Center</td><td><select id="costCenter" required></select></td></tr>
+	       <tr><td>Remarks</td><td><textarea id="remarks" class="form-control" rows="4"></textarea></td></tr>
+	       <tr><td>GL Code</td><td id="glCode"></td></tr>
+	       <tr><td>GL Description</td><td id="glDescription"></td></tr>
+	     </tbody>
+	   </table>
+	   <div class="saveButton-container mt-3">
+	     <button id="saveButton" class="btn btn-primary">Save</button>
+	   </div>
+	 `;
 
 			// Function to format number with commas and decimal support
 			function formatNumber(value) {
@@ -632,10 +639,10 @@
 				if (tbody.rows.length < 10) {
 					const newRow = document.createElement("tr");
 					newRow.innerHTML = `
-        <td><input type="text" class="form-control io-number" name="multipleIoNumber[]" required></td>
-        <td><input type="text" class="form-control amount-input" name="multipleIoAmount[]" required></td>
-        <td class="io-balance">-</td>
-      `;
+	       <td><input type="text" class="form-control io-number" name="multipleIoNumber[]" required></td>
+	       <td><input type="text" class="form-control amount-input" name="multipleIoAmount[]" required></td>
+	       <td class="io-balance">-</td>
+	     `;
 
 					tbody.appendChild(newRow);
 
@@ -655,7 +662,9 @@
 							google.script.run
 								.withSuccessHandler(function (balance) {
 									balanceCell.textContent =
-										balance !== null ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance) : "Balance not found";
+										balance !== null
+											? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance)
+											: "Balance not found";
 								})
 								.getIOBalance(ioNumber);
 						}
@@ -776,7 +785,11 @@
 			}
 
 			function setIOBalance(balance) {
-				$("#ioBalance").text(balance !== null ? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance) : "Balance not found");
+				$("#ioBalance").text(
+					balance !== null
+						? new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(balance)
+						: "Balance not found"
+				);
 			}
 
 			function showGLErrorMessage() {
@@ -1261,72 +1274,72 @@
 
 			// Build the HTML table
 			const tableHtml = `
-    <style>
-        td.required::after {
-            content: "*";
-            color: red;
-            margin-left: 5px;
-        }
-    </style>
+	   <style>
+	       td.required::after {
+	           content: "*";
+	           color: red;
+	           margin-left: 5px;
+	       }
+	   </style>
 
-    <h3>Input PR/PO Data Here</h3>
-    <table class="table table-dark table-striped">
-        <thead>
-            <tr>
-                <th>Field</th>
-                <th>Value</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td>Time Stamp (Tool Generated)</td><td>${currentDatePRPO}</td></tr>
-            <tr><td>Email Address</td><td>${username}</td></tr>
-            <tr>
-                <td class="required">Vendor Name</td>
-                <td>
-                    <input type="text" id="vendorNamePRPO" class="form-control" placeholder="Start typing vendor name..." autocomplete="off">
-                    <ul id="vendorSuggestionsPRPO" class="list-group" style="display:none; position: absolute; max-height: 150px; overflow-y: auto; z-index: 1000;"></ul>
-                </td>
-            </tr>
-            <tr><td class="required">Description</td><td contenteditable="true"></td></tr>
-            <tr><td class="required">Vat Ex/Net Amount</td><td contenteditable="true"></td></tr>
-            <tr><td class="required">Proponent</td><td contenteditable="true"></td></tr>
-            <tr><td class="required">Additional Approvers</td><td contenteditable="true"></td></tr>
-            <tr style="font-weight: bold; color: #87CEEB;">
-                <td>IO Number</td>
-                <td id="editableIoNumber">${ioNumber}</td>
-            </tr>
-            <tr>
-                <td class="required">Cost Center</td>
-                <td>
-                    <select id="costCenterPRPO" style="font-size: 16px; padding: 5px;">
-                        <option value="" disabled selected hidden>Select a Cost Center</option>
-                    </select>
-                </td>
-            </tr>
-            <tr><td class="required">GL Account</td><td id="glCode"></td></tr>
-            <tr><td class="required">Program Name</td><td contenteditable="true"></td></tr>
-            <tr>
-              <td>Uploaded PR/PO File</td>
-              <td id="uploadedRequestFile">${cleanFileName}</td>
-            </tr>
-            <tr>
-              <td class="required">Project Date</td>
-              <td >
-                <input type="date" id="projectDate" class="form-control">
-              </td>
-            </tr>
-            <tr>
-              <td class="required">End Date</td>
-              <td>
-                <input type="date" id="endDate" class="form-control">
-              </td>
-            </tr>
-            <tr><td>Remarks</td><td contenteditable="true"></td></tr>
-        </tbody>
-    </table>
-    <div id="saveButtonContainer" class="saveButton-container mt-3">
-        <button id="saveButton" class="btn btn-primary">Save</button>
-    </div>`;
+	   <h3>Input PR/PO Data Here</h3>
+	   <table class="table table-dark table-striped">
+	       <thead>
+	           <tr>
+	               <th>Field</th>
+	               <th>Value</th>
+	           </tr>
+	       </thead>
+	       <tbody>
+	           <tr><td>Time Stamp (Tool Generated)</td><td>${currentDatePRPO}</td></tr>
+	           <tr><td>Email Address</td><td>${username}</td></tr>
+	           <tr>
+	               <td class="required">Vendor Name</td>
+	               <td>
+	                   <input type="text" id="vendorNamePRPO" class="form-control" placeholder="Start typing vendor name..." autocomplete="off">
+	                   <ul id="vendorSuggestionsPRPO" class="list-group" style="display:none; position: absolute; max-height: 150px; overflow-y: auto; z-index: 1000;"></ul>
+	               </td>
+	           </tr>
+	           <tr><td class="required">Description</td><td contenteditable="true"></td></tr>
+	           <tr><td class="required">Vat Ex/Net Amount</td><td contenteditable="true"></td></tr>
+	           <tr><td class="required">Proponent</td><td contenteditable="true"></td></tr>
+	           <tr><td class="required">Additional Approvers</td><td contenteditable="true"></td></tr>
+	           <tr style="font-weight: bold; color: #87CEEB;">
+	               <td>IO Number</td>
+	               <td id="editableIoNumber">${ioNumber}</td>
+	           </tr>
+	           <tr>
+	               <td class="required">Cost Center</td>
+	               <td>
+	                   <select id="costCenterPRPO" style="font-size: 16px; padding: 5px;">
+	                       <option value="" disabled selected hidden>Select a Cost Center</option>
+	                   </select>
+	               </td>
+	           </tr>
+	           <tr><td class="required">GL Account</td><td id="glCode"></td></tr>
+	           <tr><td class="required">Program Name</td><td contenteditable="true"></td></tr>
+	           <tr>
+	             <td>Uploaded PR/PO File</td>
+	             <td id="uploadedRequestFile">${cleanFileName}</td>
+	           </tr>
+	           <tr>
+	             <td class="required">Project Date</td>
+	             <td >
+	               <input type="date" id="projectDate" class="form-control">
+	             </td>
+	           </tr>
+	           <tr>
+	             <td class="required">End Date</td>
+	             <td>
+	               <input type="date" id="endDate" class="form-control">
+	             </td>
+	           </tr>
+	           <tr><td>Remarks</td><td contenteditable="true"></td></tr>
+	       </tbody>
+	   </table>
+	   <div id="saveButtonContainer" class="saveButton-container mt-3">
+	       <button id="saveButton" class="btn btn-primary">Save</button>
+	   </div>`;
 
 			// Insert the table into the HTML
 			$("#editableTablePRPO").html(tableHtml).show();
@@ -1722,6 +1735,7 @@
 		// Global variables to store the IO Number and File Name
 		let currentIONumber = "";
 		let currentCENumber = "";
+		let currentCERowNumber = "";
 
 		// Function to populate the table with data
 		function populateTableBulk(data) {
@@ -1756,21 +1770,21 @@
 				const highlightClass = key === "Accrued?" ? "highlight-row" : "";
 
 				tableBody.append(`
-            <tr class="${highlightClass}">
-                <td>${key}</td>
-                <td>${formattedValue}</td>
-            </tr>
-        `);
+	           <tr class="${highlightClass}">
+	               <td>${key}</td>
+	               <td>${formattedValue}</td>
+	           </tr>
+	       `);
 			}
 
 			// Check if Invoice Status exists in the data and append it to the table
 			if (data["Invoice Status"]) {
 				tableBody.append(`
-            <tr>
-                <td>Invoice Status</td>
-                <td>${data["Invoice Status"]}</td>
-            </tr>
-        `);
+	           <tr>
+	               <td>Invoice Status</td>
+	               <td>${data["Invoice Status"]}</td>
+	           </tr>
+	       `);
 			}
 
 			$("#addInvoiceButtonBulk").show();
@@ -1855,6 +1869,8 @@
 						if (result.found) {
 							populateTableBulk(result.data);
 							currentCENumber = ceNumber;
+							currentCERowNumber = result.ceRowNumber;
+							console.log("currentCERownNumberSet: ", currentCERowNumber);
 							// Reset and disable IO Number and Vendor Name fields
 							$("#ioNumberBulk").val("").prop("disabled", true);
 							$("#searchIONumberButton").prop("disabled", true);
@@ -2019,15 +2035,15 @@
 			// Populate the table with non-unique rows
 			rows.forEach((row) => {
 				tableBody.append(`
-            <tr>
-                <td>${row.ceNumber}</td>
-                <td>${row.programName}</td>
-                <td>${row.vendorName}</td>
-                <td>
-                    <button class="btn btn-primary btn-sm" onclick="selectNonUniqueRow('${row.ioNumber}', '${row.vendorName}', '${row.programName}', '${row.ceNumber}')">Select</button>
-                </td>
-            </tr>
-        `);
+	           <tr>
+	               <td>${row.ceNumber}</td>
+	               <td>${row.programName}</td>
+	               <td>${row.vendorName}</td>
+	               <td>
+	                   <button class="btn btn-primary btn-sm" onclick="selectNonUniqueRow('${row.ioNumber}', '${row.vendorName}', '${row.programName}', '${row.ceNumber}')">Select</button>
+	               </td>
+	           </tr>
+	       `);
 			});
 
 			// Show the modal
@@ -2203,25 +2219,25 @@
 					createdRow: function (row, data, dataIndex) {
 						// Populate the row with input fields
 						$(row).find("td").eq(0).html(`
-                    <div class="autocomplete">
-                        <input type="text" class="form-control invoice-vendor-name" required>
-                        <div class="autocomplete-items"></div>
-                    </div>
-                `);
+	                   <div class="autocomplete">
+	                       <input type="text" class="form-control invoice-vendor-name" required>
+	                       <div class="autocomplete-items"></div>
+	                   </div>
+	               `);
 						$(row).find("td").eq(1).html('<input type="text" class="form-control" required>');
 						$(row).find("td").eq(2).html('<input type="text" class="form-control invoice-amount" required>');
 						$(row).find("td").eq(3).html('<input type="text" class="form-control">'); // Accrual Reference Doc
 						$(row).find("td").eq(4).html('<input type="date" class="form-control invoice-date" required>');
 						$(row).find("td").eq(5).html('<input type="date" class="form-control invoice-due-date">');
 						$(row).find("td").eq(6).html(` <!-- Only one column for uploaded file -->
-                    <div class="file-upload-wrapper">
-                        <input type="file" class="form-control file-upload-input" accept=".pdf,.xls,.xlsx" required>
-                        <span class="file-name"></span>
-                        <div class="upload-spinner" style="display: none;">
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...
-                        </div>
-                    </div>
-                `);
+	                   <div class="file-upload-wrapper">
+	                       <input type="file" class="form-control file-upload-input" accept=".pdf,.xls,.xlsx" required>
+	                       <span class="file-name"></span>
+	                       <div class="upload-spinner" style="display: none;">
+	                           <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...
+	                       </div>
+	                   </div>
+	               `);
 
 						// $(row).find('.invoice-date').datepicker();
 						// $(row).find('.invoice-due-date').datepicker();
@@ -2366,7 +2382,12 @@
 				let headerRowIndex = -1;
 				for (let i = 0; i < jsonData.length; i++) {
 					const row = jsonData[i];
-					if (row.includes("Invoice Vendor Name") || row.includes("Invoice Number") || row.includes("Invoice Amount (VAT EX)") || row.includes("Invoice Date")) {
+					if (
+						row.includes("Invoice Vendor Name") ||
+						row.includes("Invoice Number") ||
+						row.includes("Invoice Amount (VAT EX)") ||
+						row.includes("Invoice Date")
+					) {
 						headerRowIndex = i;
 						break;
 					}
@@ -2516,11 +2537,11 @@
 
 				// Populate the input fields in the row
 				$(rowNode).find("td").eq(0).html(`
-            <div class="autocomplete">
-                <input type="text" class="form-control invoice-vendor-name" value="${vendorName}" required>
-                <div class="autocomplete-items"></div>
-            </div>
-        `);
+	           <div class="autocomplete">
+	               <input type="text" class="form-control invoice-vendor-name" value="${vendorName}" required>
+	               <div class="autocomplete-items"></div>
+	           </div>
+	       `);
 				$(rowNode).find("td").eq(1).html(`<input type="text" class="form-control" value="${invoiceNumber}" required> `);
 				$(rowNode).find("td").eq(2).html(`<input type="text" class="form-control invoice-amount" value="${invoiceAmount}" required>`);
 				$(rowNode)
@@ -2530,14 +2551,14 @@
 				$(rowNode).find("td").eq(4).html(`<input type="date" class="form-control invoice-date" value="${invoiceDate}" required>`);
 				$(rowNode).find("td").eq(5).html(`<input type="date" class="form-control invoice-due-date" value="${invoiceDueDate}" required>`);
 				$(rowNode).find("td").eq(6).html(` <!-- Only one column for uploaded file -->
-            <div class="file-upload-wrapper">
-                <input type="file" class="form-control file-upload-input" accept=".pdf,.xls,.xlsx" required>
-                <span class="file-name"></span>
-                <div class="upload-spinner" style="display: none;">
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...
-                </div>
-            </div>
-        `);
+	           <div class="file-upload-wrapper">
+	               <input type="file" class="form-control file-upload-input" accept=".pdf,.xls,.xlsx" required>
+	               <span class="file-name"></span>
+	               <div class="upload-spinner" style="display: none;">
+	                   <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...
+	               </div>
+	           </div>
+	       `);
 
 				// Reinitialize autocomplete for the new row
 				initializeAutocomplete($(rowNode).find(".invoice-vendor-name"));
@@ -2615,13 +2636,14 @@
 		// Event listener for Save button
 		$("#saveBulkInvoiceButton").on("click", function () {
 			const submitButton = $(this);
-			submitButton.prop("disabled", true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
+			submitButton
+				.prop("disabled", true)
+				.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
 
 			const data = [];
 			let incompleteRows = [];
 			let invalidVendorRows = [];
 
-			// Collect data and validate required fields
 			bulkInvoiceTable.rows().every(function (index) {
 				const rowNode = this.node();
 				const vendorName = $(rowNode).find("td:eq(0) input").val();
@@ -2629,11 +2651,11 @@
 				const invoiceAmount = $(rowNode).find("td:eq(2) input").val();
 				const accrualRef = $(rowNode).find("td:eq(3) input").val();
 				const invoiceDate = $(rowNode).find("td:eq(4) input").val();
-				const invoiceDueDate = $(rowNode).find("td:eq(5) input").val() ? formatDate($(rowNode).find("td:eq(5) input").val()) : addDays($(rowNode).find("td:eq(4) input").val(), 30);
+				const invoiceDueDate = $(rowNode).find("td:eq(5) input").val()
+					? formatDate($(rowNode).find("td:eq(5) input").val())
+					: addDays($(rowNode).find("td:eq(4) input").val(), 30);
 				const uploadedFile = uploadedFiles[index] ? uploadedFiles[index].fileUrl : "";
 
-				console.log(invoiceDate, " ++++", invoiceDueDate);
-				// Check if all required fields are filled
 				if (!vendorName || !invoiceNumber || !invoiceAmount || !uploadedFile || !invoiceDate) {
 					incompleteRows.push(index + 1);
 				} else {
@@ -2652,8 +2674,23 @@
 				}
 			});
 
-			console.log("data", data);
+			console.log(data);
+			//return error immediately if has blank
+			if (incompleteRows.length > 0) {
+				let errorMessage = `The following rows have incomplete required fields: <br>
+			             - Rows: ${incompleteRows.join(", ")}`;
+				addRequiredIndicator("#bulkInvoiceTable");
+				Swal.fire({
+					icon: "error",
+					title: "Validation Error",
+					html: errorMessage,
+				});
+				submitButton.prop("disabled", false).html("Save");
+				return;
+			}
+
 			// Validate vendor names and save data
+			const vendorValidationPromises = [];
 			if (incompleteRows.length === 0) {
 				let vendorValidationPromises = data.map((row, index) => {
 					return new Promise((resolve) => {
@@ -2671,93 +2708,82 @@
 							.checkVendorName(row.invoiceVendorName);
 					});
 				});
-
-				Promise.all(vendorValidationPromises).then(() => {
-					if (invalidVendorRows.length > 0) {
-						let errorMessage = `The following rows have invalid vendor names (not found in Vendor DB): <br>
-                             - Rows: ${invalidVendorRows.join(", ")}`;
-
-						Swal.fire({
-							icon: "error",
-							title: "Validation Error",
-							html: errorMessage,
-						});
-
-						submitButton.prop("disabled", false).html("Save");
-						return;
-					}
-
-					if (data.length > 0) {
-						// Pass the currentFileName and currentIONumber to the backend
-						console.log("Saving with File Name:", currentFileName, "and IO Number:", currentIONumber); // Debugging
-
-						// When saving bulk invoice data
-						const fileName = currentFileName.trim(); // Trim whitespace
-						const ioNumber = currentIONumber.trim(); // Trim whitespace
-
-						// Get the Cost Center from the table
-						const costCenter = $("#bulkInvoiceDataTable").find('td:contains("Cost Center")').next().text().trim();
-						console.log("Retrieved Cost Center:", costCenter); // Log the Cost Center
-
-						google.script.run
-							.withSuccessHandler(function () {
-								// Send email notification immediately after saving
-								console.log("inside saveBulkIvoiceData");
-								google.script.run
-									.withSuccessHandler(function () {
-										// Show success message after the email is sent
-										console.log("inside sendNotifEmail");
-
-										Swal.fire({
-											icon: "success",
-											title: "Success",
-											text: "Invoice data saved successfully!",
-										}).then(() => {
-											resetModalForm();
-											resetBulkInvoicePage();
-											submitButton.prop("disabled", false).html("Save");
-										});
-									})
-									.withFailureHandler(function (error) {
-										// Handle email sending failure
-										Swal.fire({
-											icon: "error",
-											title: "Email Error",
-											text: "The data was saved, but the email could not be sent. Error: " + error.message,
-										});
-									})
-									.sendNotificationCEInvoiceEmail(fileName, currentLoggedInUser, costCenter, currentCENumber);
-							})
-							.withFailureHandler(function (error) {
-								Swal.fire({
-									icon: "error",
-									title: "Error",
-									text: "Failed to save bulk invoice data: " + error.message,
-								});
-								submitButton.prop("disabled", false).html("Save");
-							})
-							.saveBulkInvoiceData(fileName, currentIONumber, data); // Pass the file name and IO Number
-					} else {
-						Swal.fire({
-							icon: "warning",
-							title: "No Data",
-							text: "Please fill in at least one row with valid data.",
-						});
-						submitButton.prop("disabled", false).html("Save");
-					}
-				});
-			} else {
-				let errorMessage = `The following rows have incomplete required fields: <br>
-                         - Rows: ${incompleteRows.join(", ")}`;
-				addRequiredIndicator("#bulkInvoiceTable");
-				Swal.fire({
-					icon: "error",
-					title: "Validation Error",
-					html: errorMessage,
-				});
-
-				submitButton.prop("disabled", false).html("Save");
 			}
+
+			Promise.all(vendorValidationPromises).then(() => {
+				if (invalidVendorRows.length > 0) {
+					let errorMessage = `The following rows have invalid vendor names (not found in Vendor DB): <br>
+			                 - Rows: ${invalidVendorRows.join(", ")}`;
+
+					Swal.fire({
+						icon: "error",
+						title: "Validation Error",
+						html: errorMessage,
+					});
+
+					submitButton.prop("disabled", false).html("Save");
+					return;
+				}
+
+				if (data.length > 0) {
+					// Pass the currentFileName and currentIONumber to the backend
+					console.log("Saving with File Name:", currentFileName, "and IO Number:", currentIONumber); // Debugging
+
+					// When saving bulk invoice data
+					const fileName = currentFileName.trim(); // Trim whitespace
+					const ioNumber = currentIONumber.trim(); // Trim whitespace
+
+					// Get the Cost Center from the table
+					const costCenter = $("#bulkInvoiceDataTable").find('td:contains("Cost Center")').next().text().trim();
+					console.log("Retrieved Cost Center:", costCenter); // Log the Cost Center
+
+					google.script.run
+						.withSuccessHandler(function () {
+							// Send email notification immediately after saving
+							console.log("inside saveBulkIvoiceData");
+							google.script.run
+								.withSuccessHandler(function () {
+									// Show success message after the email is sent
+									console.log("inside sendNotifEmail");
+
+									Swal.fire({
+										icon: "success",
+										title: "Success",
+										text: "Invoice data saved successfully!",
+									}).then(() => {
+										resetModalForm();
+										resetBulkInvoicePage();
+										submitButton.prop("disabled", false).html("Save");
+									});
+								})
+								.withFailureHandler(function (error) {
+									// Handle email sending failure
+									Swal.fire({
+										icon: "error",
+										title: "Email Error",
+										text: "The data was saved, but the email could not be sent. Error: " + error.message,
+									});
+								})
+								.sendNotificationCEInvoiceEmail(fileName, currentLoggedInUser, costCenter, currentCENumber);
+						})
+						.withFailureHandler(function (error) {
+							Swal.fire({
+								icon: "error",
+								title: "Error",
+								text: "Failed to save bulk invoice data: " + error.message,
+							});
+							submitButton.prop("disabled", false).html("Save");
+						})
+						.saveBulkInvoiceData(fileName, currentIONumber, data, currentCERowNumber); // Pass the file name and IO Number
+				} else {
+					Swal.fire({
+						icon: "warning",
+						title: "No Data",
+						text: "Please fill in at least one row with valid data.",
+					});
+					submitButton.prop("disabled", false).html("Save");
+				}
+			});
 		});
 
 		//add red border around required input field if no input is found.
@@ -2781,6 +2807,31 @@
 				} else {
 					console.log("add inputerror class");
 					$this.addClass("inputerror");
+				}
+			});
+		}
+
+		function addInvalidIndicator(target) {
+			var requiredFields = $(target);
+			requiredFields.each(function (field) {
+				const $this = $(this);
+				let value = $this.val();
+				if (value === null || value.trim() === "") {
+					$this.removeClass("inputinvalid");
+					$this.addClass("inputinvalid");
+				}
+			});
+
+			requiredFields.on("input change blur", function () {
+				const $this = $(this);
+				let value = $this.val();
+				console.log(value != null, "||", value.trim() != "", "==>", value != null || value.trim() != "");
+				if (value.trim() != "") {
+					console.log("remove inputinvalid class");
+					$this.removeClass("inputinvalid");
+				} else {
+					console.log("add inputinvalid class");
+					$this.addClass("inputinvalid");
 				}
 			});
 		}
