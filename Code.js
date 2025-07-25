@@ -1266,6 +1266,7 @@ function getRowByCERowNumber(ceRowNumber) {
 		console.log(values);
 
 		const result = {
+			ceRowNumber: ceRowNumber,
 			"Time Stamp (Tool Generated)": values[colTimeStamp - 2].toString(),
 			"Email Address": values[colEmailAddress - 2].toString(),
 			"CE Start Date": values[colCEStartDate - 2].toString(),

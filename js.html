@@ -1759,6 +1759,9 @@
 			};
 
 			for (const [key, value] of Object.entries(data)) {
+				if (key == "ceRowNumber") {
+					continue;
+				}
 				let formattedValue = value;
 
 				// Format specific date fields
@@ -2065,6 +2068,7 @@
 				.withSuccessHandler(function (result) {
 					Swal.close();
 					try {
+						console.log(result);
 						// Parse the result if it's a JSON string
 						if (typeof result === "string") {
 							result = JSON.parse(result);
@@ -2075,6 +2079,7 @@
 							throw new Error("Invalid or empty data received from the server.");
 						}
 
+						currentCERowNumber = result.ceRowNumber;
 						// Populate the table with the selected row's data
 						populateTableBulk(result);
 						$("#nonUniqueIONumberModal").modal("hide"); // Hide the modal
